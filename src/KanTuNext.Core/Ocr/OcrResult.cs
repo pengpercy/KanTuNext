@@ -64,3 +64,42 @@ public interface IOcrEngine
     /// <summary>Recognizes text in an image file. Runs off the UI thread; never throws for unreadable images.</summary>
     Task<OcrResult> RecognizeAsync(string imagePath, CancellationToken cancel = default);
 }
+
+/// <summary>Text clean-up shared by engines that split CJK text into one "word" per character.</summary>
+public static class OcrText
+{
+    /// <summary>
+    /// Joins words with spaces, except between two CJK characters (and around CJK punctuation), so
+    /// "离 线 看 图 KanTuNext 0.1" becomes "离线看图 KanTuNext 0.1". Windows OCR and tesseract both emit
+    /// CJK text one character per word.
+    /// </summary>
+    public static string JoinWords(IEnumerable<string> words)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var raw in words)
+        {
+            var word = raw.Trim();
+            if (word.Length == 0) continue;
+            var previous = sb.Length > 0 ? sb[^1] : '\0';
+            if (sb.Length > 0 && !(IsCjk(previous) && IsCjk(word[0])) && !IsCjkPunctuation(previous) && !IsCjkPunctuation(word[0]))
+                sb.Append(' ');
+            sb.Append(word);
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>Removes the spaces an engine put between CJK characters inside an already-joined line.</summary>
+    public static string CollapseCjkSpaces(string line) => JoinWords(line.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
+    /// <summary>CJK and full-width punctuation hugs its neighbours: no space on either side.</summary>
+    public static bool IsCjkPunctuation(char c) => c is >= '\u3000' and <= '\u303F' or >= '\uFF00' and <= '\uFFEF';
+
+    /// <summary>Han, kana, hangul, and CJK / full-width punctuation.</summary>
+    public static bool IsCjk(char c) =>
+        c is >= '一' and <= '鿿'   // CJK unified ideographs
+          or >= '㐀' and <= '䶿'   // extension A
+          or >= '　' and <= '〿'   // CJK punctuation
+          or >= '぀' and <= 'ヿ'   // hiragana, katakana
+          or >= '가' and <= '힯'   // hangul syllables
+          or >= '＀' and <= '￯';  // full-width forms
+}

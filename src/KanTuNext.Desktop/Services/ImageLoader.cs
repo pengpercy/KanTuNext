@@ -52,27 +52,45 @@ public sealed class ImageLoader
     {
         try
         {
-            using var stream = File.OpenRead(path);
-            using var codec = SKCodec.Create(stream);
-            if (codec is null) return null;
-
-            if (codec.FrameCount > 1 && DecodeAnimation(codec) is { } animation) return animation;
-
-            var full = codec.Info;
-            var longest = Math.Max(full.Width, full.Height);
-            var dims = longest > MaxEdge ? codec.GetScaledDimensions((float)MaxEdge / longest) : full.Size;
-            var info = new SKImageInfo(dims.Width, dims.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
-            using var decoded = new SKBitmap(info);
-            var result = codec.GetPixels(info, decoded.GetPixels());
-            if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput)) return null;
-
-            using var upright = Orient(decoded, codec.EncodedOrigin);
-            return new LoadedImage(ToBitmap(upright ?? decoded));
+            using (var stream = File.OpenRead(path))
+            using (var codec = SKCodec.Create(stream))
+            {
+                if (codec is null) return null;
+                if (codec.FrameCount > 1 && DecodeAnimation(codec) is { } animation) return animation;
+            }
+            using var upright = DecodeUpright(path, MaxEdge);
+            return upright is null ? null : new LoadedImage(ToBitmap(upright));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or OutOfMemoryException)
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Decodes a still image (first frame), scaled so its longest edge is at most <paramref name="maxEdge"/>, and
+    /// turned upright per its EXIF orientation. Shared by the viewer and OCR engines that need raw pixels.
+    /// </summary>
+    internal static SKBitmap? DecodeUpright(string path, int maxEdge, SKColorType colorType = SKColorType.Bgra8888)
+    {
+        using var stream = File.OpenRead(path);
+        using var codec = SKCodec.Create(stream);
+        if (codec is null) return null;
+
+        var full = codec.Info;
+        var longest = Math.Max(full.Width, full.Height);
+        var dims = longest > maxEdge ? codec.GetScaledDimensions((float)maxEdge / longest) : full.Size;
+        var info = new SKImageInfo(dims.Width, dims.Height, colorType, SKAlphaType.Premul);
+        var decoded = new SKBitmap(info);
+        var result = codec.GetPixels(info, decoded.GetPixels());
+        if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput))
+        {
+            decoded.Dispose();
+            return null;
+        }
+        if (Orient(decoded, codec.EncodedOrigin) is not { } upright) return decoded;
+        decoded.Dispose();
+        return upright;
     }
 
     private static Bitmap ToBitmap(SKBitmap source) =>
@@ -126,7 +144,7 @@ public sealed class ImageLoader
         if (origin == SKEncodedOrigin.TopLeft) return null;
         var swap = origin is SKEncodedOrigin.LeftTop or SKEncodedOrigin.RightTop or SKEncodedOrigin.RightBottom or SKEncodedOrigin.LeftBottom;
         var (w, h) = swap ? (bitmap.Height, bitmap.Width) : (bitmap.Width, bitmap.Height);
-        var rotated = new SKBitmap(new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul));
+        var rotated = new SKBitmap(new SKImageInfo(w, h, bitmap.ColorType, SKAlphaType.Premul));
         using var canvas = new SKCanvas(rotated);
         // Each case maps the stored pixels onto the upright w×h canvas
         var m = origin switch

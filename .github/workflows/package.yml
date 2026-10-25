@@ -116,7 +116,7 @@ jobs:
         run: |
           export DEBIAN_FRONTEND=noninteractive
           apt-get update
-          apt-get install -y --no-install-recommends ca-certificates curl git file dpkg-dev rpm
+          apt-get install -y --no-install-recommends ca-certificates curl git file dpkg-dev rpm libtesseract4 patchelf
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v7
         with:

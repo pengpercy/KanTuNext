@@ -12,6 +12,25 @@ esac
 
 rm -f KanTuNext/*.dbg KanTuNext/*.pdb
 chmod +x KanTuNext/KanTuNext
+# OCR: libtesseract (from this ubuntu:20.04 container, so the glibc 2.31 baseline holds) and the libraries it
+# needs that aren't part of every distro's base, into KanTuNext/ocr/ with $ORIGIN rpaths; plus tessdata_fast
+# chi_sim + eng. The app prefers this copy and falls back to a system libtesseract.
+OCR=KanTuNext/ocr
+mkdir -p $OCR/tessdata
+tess=$(ldconfig -p | awk '/libtesseract\.so\.4 / {print $NF; exit}')
+[[ -n "$tess" ]] || { echo "libtesseract4 is not installed"; exit 1; }
+cp -L "$tess" $OCR/
+# Base-system libraries every target already has (and must not be shadowed): glibc, the C++ runtime, zlib
+skip='^(linux-vdso|ld-linux|libc\.|libm\.|libdl\.|libpthread\.|librt\.|libresolv\.|libstdc\+\+|libgcc_s|libz\.)'
+ldd "$tess" | awk '/=> \// {print $1, $3}' | while read -r name path; do
+    [[ "$name" =~ $skip ]] || cp -L "$path" $OCR/
+done
+for lib in $OCR/*.so*; do patchelf --set-rpath '$ORIGIN' "$lib"; done
+for lang in chi_sim eng; do
+    curl -fsSL -o "$OCR/tessdata/$lang.traineddata" "https://github.com/tesseract-ocr/tessdata_fast/raw/main/$lang.traineddata"
+done
+echo "OCR bundle: $(du -sh $OCR | cut -f1) ($(ls $OCR | grep -c '\.so') libraries)"
+
 # 256px full-bleed icon (the Windows/Linux variant; macOS uses its own padded master)
 mkdir -p icons && cp ../src/KanTuNext.Desktop/Assets/kantunext.png icons/kantunext.png
 
@@ -55,3 +74,8 @@ rpmbuild -bb --target="$rpm_arch" resources/linux/kantunext.spec \
 mv "$RPMTOP/RPMS/$rpm_arch/kantunext-$VERSION-1.$rpm_arch.rpm" ./
 
 ls -la KanTuNext-*.AppImage kantunext_*.deb kantunext-*.rpm
+# Size budget for the Linux packages (OCR included)
+for f in KanTuNext-*.AppImage kantunext_*.deb kantunext-*.rpm; do
+    size=$(stat -c %s "$f")
+    if (( size > 100 * 1024 * 1024 )); then echo "$f is $((size / 1024 / 1024)) MB, over the 100 MB budget"; exit 1; fi
+done

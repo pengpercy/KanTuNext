@@ -34,3 +34,17 @@ public class OcrLayoutTests
         Assert.Equal("", OcrResult.Empty.Text);
     }
 }
+
+public class OcrTextTests
+{
+    [Theory]
+    [InlineData(new[] { "离", "线", "看", "图", "KanTuNext", "0.1" }, "离线看图 KanTuNext 0.1")]
+    [InlineData(new[] { "电", "话", "010-123", "邮", "编" }, "电话 010-123 邮编")]
+    [InlineData(new[] { "左", "栏", "：", "地", "点" }, "左栏：地点")]
+    [InlineData(new[] { "Offline", "image", "viewer" }, "Offline image viewer")]
+    public void JoinsCjkWithoutSpaces(string[] words, string expected) => Assert.Equal(expected, OcrText.JoinWords(words));
+
+    [Fact]
+    public void CollapsesSpacesInsideAJoinedLine() =>
+        Assert.Equal("支持 HEIC、AVIF 等格式", OcrText.CollapseCjkSpaces("支 持 HEIC 、 AVIF 等 格 式"));
+}
