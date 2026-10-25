@@ -25,6 +25,20 @@
     <Setter Property="Background" Value="{DynamicResource SidebarSelectedBrush}" />
   </Style>
 
+  <!-- Disclosure chevron inside a sidebar row: its own click target, no chrome -->
+  <Style Selector="Button.chevron">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Height" Value="20" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.chevron:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
   <!-- 小/中/大/最大 segmented control -->
   <Style Selector="RadioButton.segment">
     <Setter Property="Padding" Value="14,3" />

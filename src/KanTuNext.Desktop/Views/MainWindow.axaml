@@ -40,9 +40,16 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:SidebarItem">
                         <RadioButton Classes="sidebarItem" GroupName="sidebar" IsChecked="{Binding IsSelected}">
-                          <Grid ColumnDefinitions="14,6,16,9,*,Auto">
-                            <PathIcon Data="{StaticResource Icon.chevron-right}" Width="12" Height="12"
-                                      Foreground="{DynamicResource SidebarHeaderBrush}" IsVisible="{Binding Expandable}" />
+                          <Grid ColumnDefinitions="14,6,16,9,*,Auto" Margin="{Binding Indent}">
+                            <Button Classes="chevron" IsVisible="{Binding Expandable}" Click="OnToggleFolder"
+                                    ToolTip.Tip="展开子文件夹">
+                              <PathIcon Data="{StaticResource Icon.chevron-right}" Width="12" Height="12"
+                                        Foreground="{DynamicResource SidebarHeaderBrush}">
+                                <PathIcon.RenderTransform>
+                                  <RotateTransform Angle="{Binding ChevronAngle}" />
+                                </PathIcon.RenderTransform>
+                              </PathIcon>
+                            </Button>
                             <PathIcon Grid.Column="2" Data="{Binding Icon}" Width="16" Height="16"
                                       Foreground="{DynamicResource SidebarIconBrush}" />
                             <TextBlock Grid.Column="4" Text="{Binding Title}" VerticalAlignment="Center"

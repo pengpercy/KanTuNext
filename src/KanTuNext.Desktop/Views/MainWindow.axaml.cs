@@ -90,6 +90,12 @@ public partial class MainWindow : Window
 
     private void OnSettings(object? sender, RoutedEventArgs e) => ShowSettings();
 
+    private void OnToggleFolder(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: SidebarItem item } && DataContext is MainViewModel vm) vm.ToggleExpanded(item);
+        e.Handled = true; // don't select the row as well
+    }
+
     private void OnScanDuplicates(object? sender, RoutedEventArgs e) => _ = (DataContext as MainViewModel)?.ScanDuplicatesAsync();
 
     private async void OnAddFolder(object? sender, RoutedEventArgs e)

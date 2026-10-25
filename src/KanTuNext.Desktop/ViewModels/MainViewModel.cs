@@ -33,7 +33,7 @@ public sealed partial class MainViewModel : ObservableObject
             [
                 Item(LibraryCategory.LargeImages, "大图片", "image-size-select-large"),
                 Item(LibraryCategory.Screenshots, "屏幕快照", "monitor-screenshot"),
-                Item(LibraryCategory.Videos, "视频", "play-circle-outline", true),
+                Item(LibraryCategory.Videos, "视频", "play-circle-outline"),
                 Item(LibraryCategory.Duplicates, "重复照片", "content-duplicate"),
                 Item(LibraryCategory.RecentlyDeleted, "最近删除", "trash-can-outline"),
             ]),
@@ -152,6 +152,49 @@ public sealed partial class MainViewModel : ObservableObject
             SaveSettings();
         }
         existing.IsSelected = true;
+    }
+
+    /// <summary>
+    /// Shows or hides a folder's subfolders that contain photos, right under it, with their counts taken from
+    /// the folder's last scan (no extra disk reads).
+    /// </summary>
+    public void ToggleExpanded(SidebarItem folder)
+    {
+        if (folder is not { Category: LibraryCategory.Folder, Path: { } path }) return;
+        var list = Sections[0].Items;
+        if (folder.IsExpanded)
+        {
+            Collapse(folder);
+            return;
+        }
+        folder.IsExpanded = true;
+        IReadOnlyList<MediaFile>? files;
+        lock (_folderFiles) files = _folderFiles.FirstOrDefault(kv => path.StartsWith(kv.Key, StringComparison.Ordinal)).Value;
+        var prefix = Path.TrimEndingDirectorySeparator(path) + Path.DirectorySeparatorChar;
+        var counts = (files ?? [])
+            .Where(f => f.Path.StartsWith(prefix, StringComparison.Ordinal) && f.Path.IndexOf(Path.DirectorySeparatorChar, prefix.Length) > 0)
+            .GroupBy(f => f.Path[..f.Path.IndexOf(Path.DirectorySeparatorChar, prefix.Length)], StringComparer.Ordinal)
+            .OrderBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase);
+        var at = list.IndexOf(folder) + 1;
+        foreach (var group in counts)
+        {
+            var hasDeeper = group.Any(f => f.Path.IndexOf(Path.DirectorySeparatorChar, group.Key.Length + 1) > 0);
+            var child = new SidebarItem(LibraryCategory.Folder, Path.GetFileName(group.Key), "folder-outline", OnSelected,
+                hasDeeper, group.Key, folder.Depth + 1) { Count = group.Count().ToString() };
+            folder.Children.Add(child);
+            list.Insert(at++, child);
+        }
+    }
+
+    private void Collapse(SidebarItem folder)
+    {
+        foreach (var child in folder.Children)
+        {
+            Collapse(child);
+            Sections[0].Items.Remove(child);
+        }
+        folder.Children.Clear();
+        folder.IsExpanded = false;
     }
 
     /// <summary>The settings window's model, sharing this window's settings object.</summary>
