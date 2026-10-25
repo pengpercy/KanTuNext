@@ -48,6 +48,12 @@ public sealed partial class MainViewModel : ObservableObject
         (folders.FirstOrDefault(i => i.Path == _settings.LastFolder) ?? folders[0]).IsSelected = true;
         _ = CountFoldersAsync();
         UpdateTagCounts();
+        UpdateDeletedCount();
+        AppServices.Deleted.Changed += () => Dispatcher.UIThread.Post(() =>
+        {
+            UpdateDeletedCount();
+            if (Selected?.Category == LibraryCategory.RecentlyDeleted) _ = LoadAsync(Selected, refresh: true);
+        });
         AppServices.Tags.Changed += () => Dispatcher.UIThread.Post(() =>
         {
             UpdateTagCounts();
@@ -63,6 +69,35 @@ public sealed partial class MainViewModel : ObservableObject
         LibraryCategory.TagBad => PhotoTag.Bad,
         _ => PhotoTag.None,
     };
+
+    private void UpdateDeletedCount()
+    {
+        foreach (var item in Sections.SelectMany(s => s.Items).Where(i => i.Category == LibraryCategory.RecentlyDeleted))
+            item.Count = AppServices.Deleted.Present().Count.ToString();
+    }
+
+    /// <summary>What's in 最近删除: the trashed copies, newest deletion first.</summary>
+    private static IReadOnlyList<MediaGroup> DeletedGroups()
+    {
+        var files = new List<MediaFile>();
+        foreach (var item in AppServices.Deleted.Present())
+        {
+            var info = new FileInfo(item.TrashedPath);
+            if (info.Exists && MediaTypes.KindOf(item.TrashedPath) is { } kind)
+                files.Add(new MediaFile(item.TrashedPath, kind, info.Length, info.LastWriteTime));
+        }
+        return files.Count == 0 ? [] : [new MediaGroup(TimelineText.ItemCount(files.Count), TimelineText.FileSize(files.Sum(f => f.Length)), files)];
+    }
+
+    /// <summary>放回原处 for an item listed in 最近删除.</summary>
+    public bool Restore(MediaFile file) => AppServices.Deleted.Restore(file.Path) is not null;
+
+    /// <summary>移到废纸篓 from the grid's context menu.</summary>
+    public bool Delete(MediaFile file) => AppServices.Delete(file.Path);
+
+    public void ToggleTag(MediaFile file, PhotoTag tag) => AppServices.Tags.Toggle(file.Path, tag);
+
+    public bool IsRecentlyDeleted => Selected?.Category == LibraryCategory.RecentlyDeleted;
 
     private void UpdateTagCounts()
     {
@@ -261,7 +296,7 @@ public sealed partial class MainViewModel : ObservableObject
             Groups = null;
             Watch(item?.Category == LibraryCategory.Folder ? item.Path : null);
             _duplicates?.Cancel();
-            ShowSizes = item?.Category is LibraryCategory.LargeImages or LibraryCategory.Screenshots;
+            ShowSizes = item?.Category is LibraryCategory.LargeImages or LibraryCategory.Screenshots or LibraryCategory.RecentlyDeleted;
             ShowDuplicateIntro = item?.Category == LibraryCategory.Duplicates;
             DuplicateProgress = "";
         }
@@ -281,6 +316,12 @@ public sealed partial class MainViewModel : ObservableObject
             {
                 if (_load == cts) IsLoading = false;
             }
+            return;
+        }
+        if (item?.Category == LibraryCategory.RecentlyDeleted)
+        {
+            var deleted = await Task.Run(DeletedGroups, cts.Token);
+            if (!cts.IsCancellationRequested) Groups = deleted;
             return;
         }
         if (item is not null && TagOf(item.Category) is var tag and not PhotoTag.None)

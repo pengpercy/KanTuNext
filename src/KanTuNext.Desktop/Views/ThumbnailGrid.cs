@@ -62,6 +62,9 @@ public sealed class ThumbnailGrid : Control
     /// <summary>Raised on double-click or Enter with the chosen file (opens the viewer).</summary>
     public event Action<MediaFile>? Opened;
 
+    /// <summary>Raised on right-click over a thumbnail (after selecting it), for the context menu.</summary>
+    public event Action<MediaFile>? ItemContextRequested;
+
     private readonly record struct Section(MediaGroup Group, double Top, double ItemsTop, int Rows, double Bottom);
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -241,7 +244,10 @@ public sealed class ThumbnailGrid : Control
         Focus();
         _selected = HitTest(e.GetPosition(this));
         InvalidateVisual();
-        if (e.ClickCount == 2 && _selected is var (s, i)) Opened?.Invoke(_sections[s].Group.Items[i]);
+        if (_selected is not var (s, i)) return;
+        var file = _sections[s].Group.Items[i];
+        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed) ItemContextRequested?.Invoke(file);
+        else if (e.ClickCount == 2) Opened?.Invoke(file);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

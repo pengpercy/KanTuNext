@@ -132,8 +132,7 @@ public sealed partial class ViewerViewModel : ObservableObject
     public async Task<bool> DeleteCurrentAsync()
     {
         if (Current is not { } item) return false;
-        if (!await Task.Run(() => Trash.MoveToTrash(item.Path))) return false;
-        AppServices.Tags.Move(item.Path, null);
+        if (!await Task.Run(() => AppServices.Delete(item.Path))) return false;
         _items.RemoveAt(Index);
         OnPropertyChanged(nameof(IsEmpty));
         if (_items.Count == 0)

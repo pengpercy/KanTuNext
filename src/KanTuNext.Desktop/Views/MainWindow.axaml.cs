@@ -14,6 +14,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         if (OperatingSystem.IsWindows()) WindowsResizeFrame.Attach(this);
+        Grid.ItemContextRequested += ShowContextMenu;
         Grid.Opened += file =>
         {
             if (DataContext is not MainViewModel vm || file.Kind != KanTuNext.Core.Library.MediaKind.Image) return;
@@ -39,6 +40,36 @@ public partial class MainWindow : Window
             // A theme switch relays out the title bar after ActualThemeVariantChanged; post the update.
             ActualThemeVariantChanged += (_, _) => Dispatcher.UIThread.Post(CenterTrafficLights, DispatcherPriority.Background);
         }
+    }
+
+    /// <summary>Right-click menu on a thumbnail: put back (最近删除) or reveal / mark / delete.</summary>
+    private void ShowContextMenu(KanTuNext.Core.Library.MediaFile file)
+    {
+        if (DataContext is not MainViewModel vm) return;
+        var items = new List<object>();
+        MenuItem Item(string header, Action action)
+        {
+            var item = new MenuItem { Header = header };
+            item.Click += (_, _) => action();
+            return item;
+        }
+        if (vm.IsRecentlyDeleted)
+        {
+            items.Add(Item("放回原处", () => vm.Restore(file)));
+        }
+        else
+        {
+            items.Add(Item(OperatingSystem.IsMacOS() ? "在访达中显示" : OperatingSystem.IsWindows() ? "在资源管理器中显示" : "打开所在文件夹",
+                () => Reveal.InFileManager(file.Path)));
+            items.Add(new Separator());
+            items.Add(Item("标记为「好」", () => vm.ToggleTag(file, KanTuNext.Core.Library.PhotoTag.Good)));
+            items.Add(Item("标记为「中」", () => vm.ToggleTag(file, KanTuNext.Core.Library.PhotoTag.Neutral)));
+            items.Add(Item("标记为「差」", () => vm.ToggleTag(file, KanTuNext.Core.Library.PhotoTag.Bad)));
+            items.Add(new Separator());
+            items.Add(Item("移到废纸篓", () => vm.Delete(file)));
+        }
+        var menu = new ContextMenu { ItemsSource = items };
+        menu.Open(Grid);
     }
 
     private void OnScanDuplicates(object? sender, RoutedEventArgs e) => _ = (DataContext as MainViewModel)?.ScanDuplicatesAsync();

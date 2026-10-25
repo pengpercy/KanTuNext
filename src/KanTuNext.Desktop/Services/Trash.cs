@@ -7,14 +7,18 @@ namespace KanTuNext.Desktop.Services;
 /// <summary>Moves files to the system trash / recycle bin, so a delete can be undone from there.</summary>
 internal static class Trash
 {
-    /// <summary>Returns false (and leaves the file alone) when it could not be moved to the trash.</summary>
-    public static bool MoveToTrash(string path)
+    /// <summary>
+    /// Returns false (and leaves the file alone) when it could not be moved to the trash. <paramref name="trashedPath"/>
+    /// is where it ended up, when the platform says (macOS, Linux home trash) — what 最近删除 needs to put it back.
+    /// </summary>
+    public static bool MoveToTrash(string path, out string? trashedPath)
     {
+        trashedPath = null;
         try
         {
-            if (OperatingSystem.IsMacOS()) return MacTrash(path);
+            if (OperatingSystem.IsMacOS()) return MacTrash(path, out trashedPath);
             if (OperatingSystem.IsWindows()) return WindowsRecycle(path);
-            if (OperatingSystem.IsLinux()) return LinuxTrash(path);
+            if (OperatingSystem.IsLinux()) return LinuxTrash(path, out trashedPath);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or ExternalException or System.ComponentModel.Win32Exception)
         {
@@ -30,10 +34,11 @@ internal static class Trash
     [DllImport(ObjC, EntryPoint = "objc_msgSend")] private static extern IntPtr Send(IntPtr receiver, IntPtr selector);
     [DllImport(ObjC, EntryPoint = "objc_msgSend")] private static extern IntPtr Send(IntPtr receiver, IntPtr selector, IntPtr arg);
     [DllImport(ObjC, EntryPoint = "objc_msgSend")]
-    private static extern byte SendTrash(IntPtr receiver, IntPtr selector, IntPtr url, IntPtr resultingUrl, IntPtr error);
+    private static extern byte SendTrash(IntPtr receiver, IntPtr selector, IntPtr url, out IntPtr resultingUrl, IntPtr error);
 
-    private static bool MacTrash(string path)
+    private static bool MacTrash(string path, out string? trashedPath)
     {
+        trashedPath = null;
         var utf8 = Marshal.StringToCoTaskMemUTF8(path);
         try
         {
@@ -43,7 +48,11 @@ internal static class Trash
                 var str = Send(objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), utf8);
                 var url = Send(objc_getClass("NSURL"), sel_registerName("fileURLWithPath:"), str);
                 var manager = Send(objc_getClass("NSFileManager"), sel_registerName("defaultManager"));
-                return SendTrash(manager, sel_registerName("trashItemAtURL:resultingItemURL:error:"), url, IntPtr.Zero, IntPtr.Zero) != 0;
+                if (SendTrash(manager, sel_registerName("trashItemAtURL:resultingItemURL:error:"), url, out var resulting, IntPtr.Zero) == 0)
+                    return false;
+                if (resulting != IntPtr.Zero)
+                    trashedPath = Marshal.PtrToStringUTF8(Send(Send(resulting, sel_registerName("path")), sel_registerName("UTF8String")));
+                return true;
             }
             finally
             {
@@ -96,8 +105,9 @@ internal static class Trash
     }
 
     // ---- Linux: the freedesktop.org trash spec for the home trash; `gio trash` for other volumes
-    private static bool LinuxTrash(string path)
+    private static bool LinuxTrash(string path, out string? trashedPath)
     {
+        trashedPath = null;
         var dataHome = Environment.GetEnvironmentVariable("XDG_DATA_HOME") is { Length: > 0 } xdg
             ? xdg
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share");
@@ -117,6 +127,7 @@ internal static class Trash
         try
         {
             File.Move(path, Path.Combine(files, target));
+            trashedPath = Path.Combine(files, target);
             return true;
         }
         catch (IOException)
