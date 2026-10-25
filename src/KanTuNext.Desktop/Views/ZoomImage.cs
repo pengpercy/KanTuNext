@@ -44,6 +44,9 @@ public sealed class ZoomImage : Control
     public event Action? ViewChanged;
 
     public bool IsFit => _fit;
+
+    /// <summary>Set when switching photos, so a same-sized next photo still starts fitted and upright.</summary>
+    public bool ResetOnNextSource { get; set; }
     public double Zoom => _zoom;
 
     /// <summary>Image size after rotation, in image pixels.</summary>
@@ -66,7 +69,13 @@ public sealed class ZoomImage : Control
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == SourceProperty) Reset();
+        if (change.Property == SourceProperty &&
+            ((change.OldValue as Bitmap)?.PixelSize != (change.NewValue as Bitmap)?.PixelSize || ResetOnNextSource))
+        {
+            ResetOnNextSource = false;
+            Reset();
+        }
+        else if (change.Property == SourceProperty) InvalidateVisual();
         if (change.Property == BoundsProperty && _fit) { _zoom = FitZoom; InvalidateVisual(); }
     }
 

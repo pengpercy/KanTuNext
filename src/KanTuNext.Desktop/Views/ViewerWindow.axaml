@@ -31,6 +31,13 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="#4DFFFFFF" />
     </Style>
+    <!-- The mark the photo has: its button lights up in the accent colour -->
+    <Style Selector="Button.viewerTool.on">
+      <Setter Property="Foreground" Value="#FF2E9BFF" />
+    </Style>
+    <Style Selector="Button.viewerTool.on:pointerover /template/ ContentPresenter">
+      <Setter Property="Foreground" Value="#FF5CB2FF" />
+    </Style>
     <Style Selector="Border#ToolbarDock">
       <Setter Property="Transitions">
         <Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.2" /></Transitions>
@@ -68,13 +75,13 @@
         <Button Classes="viewerTool" ToolTip.Tip="下一张（→）" Click="OnNext" IsEnabled="{Binding CanGoForward}">
           <PathIcon Data="{StaticResource Icon.menu-right-outline}" Width="30" Height="30" />
         </Button>
-        <Button Classes="viewerTool" ToolTip.Tip="好" IsEnabled="False">
+        <Button x:Name="TagGood" Classes="viewerTool" ToolTip.Tip="标记为「好」" Click="OnTag" Tag="Good">
           <PathIcon Data="{StaticResource Icon.thumb-up-outline}" Width="22" Height="22" />
         </Button>
-        <Button Classes="viewerTool" ToolTip.Tip="中" IsEnabled="False">
+        <Button x:Name="TagNeutral" Classes="viewerTool" ToolTip.Tip="标记为「中」" Click="OnTag" Tag="Neutral">
           <PathIcon Data="{StaticResource Icon.emoticon-neutral-outline}" Width="22" Height="22" />
         </Button>
-        <Button Classes="viewerTool" ToolTip.Tip="差" IsEnabled="False">
+        <Button x:Name="TagBad" Classes="viewerTool" ToolTip.Tip="标记为「差」" Click="OnTag" Tag="Bad">
           <PathIcon Data="{StaticResource Icon.thumb-down-outline}" Width="22" Height="22" />
         </Button>
         <Button Classes="viewerTool" ToolTip.Tip="放大（+）" Click="OnZoomIn">
@@ -91,6 +98,9 @@
         </Button>
         <Button Classes="viewerTool" ToolTip.Tip="旋转（R）" Click="OnRotate">
           <PathIcon Data="{StaticResource Icon.rotate-left}" Width="22" Height="22" />
+        </Button>
+        <Button Classes="viewerTool" ToolTip.Tip="移到废纸篓（Delete）" Click="OnDelete">
+          <PathIcon Data="{StaticResource Icon.trash-can-outline}" Width="22" Height="22" />
         </Button>
         <Button Classes="viewerTool" ToolTip.Tip="返回缩略图（Esc）" Click="OnClose">
           <PathIcon Data="{StaticResource Icon.dots-grid}" Width="22" Height="22" />

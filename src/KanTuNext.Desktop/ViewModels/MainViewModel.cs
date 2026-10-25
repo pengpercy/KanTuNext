@@ -4,6 +4,7 @@ using KanTuNext.Core.Library;
 using KanTuNext.Core.Metadata;
 using KanTuNext.Core.Settings;
 using KanTuNext.Core.Timeline;
+using KanTuNext.Desktop.Services;
 
 namespace KanTuNext.Desktop.ViewModels;
 
@@ -44,6 +45,51 @@ public sealed partial class MainViewModel : ObservableObject
         var folders = Sections[0].Items;
         (folders.FirstOrDefault(i => i.Path == _settings.LastFolder) ?? folders[0]).IsSelected = true;
         _ = CountFoldersAsync();
+        UpdateTagCounts();
+        AppServices.Tags.Changed += () => Dispatcher.UIThread.Post(() =>
+        {
+            UpdateTagCounts();
+            // The open tag list itself changes when a photo is marked or unmarked
+            if (Selected is { } item && TagOf(item.Category) is not PhotoTag.None) _ = LoadAsync(item, refresh: true);
+        });
+    }
+
+    private static PhotoTag TagOf(LibraryCategory category) => category switch
+    {
+        LibraryCategory.TagGood => PhotoTag.Good,
+        LibraryCategory.TagNeutral => PhotoTag.Neutral,
+        LibraryCategory.TagBad => PhotoTag.Bad,
+        _ => PhotoTag.None,
+    };
+
+    private void UpdateTagCounts()
+    {
+        foreach (var item in Sections.SelectMany(s => s.Items))
+            if (TagOf(item.Category) is var tag and not PhotoTag.None)
+                item.Count = AppServices.Tags.Count(tag) is var n and > 0 ? n.ToString() : "0";
+    }
+
+    /// <summary>The marked photos that still exist, with their EXIF dates (from the cache when possible).</summary>
+    private IReadOnlyList<MediaFile> TaggedFiles(PhotoTag tag)
+    {
+        var result = new List<MediaFile>();
+        foreach (var path in AppServices.Tags.PathsWith(tag))
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists || MediaTypes.KindOf(path) is not { } kind) continue;
+            var file = new MediaFile(path, kind, info.Length, info.LastWriteTime);
+            if (kind == MediaKind.Image)
+            {
+                if (!_metadata.Value.TryGet(path, file.Modified, file.Length, out var exif))
+                {
+                    exif = ExifReader.Read(path);
+                    _metadata.Value.Set(path, file.Modified, file.Length, exif);
+                }
+                file = file with { Taken = exif.Taken, Orientation = exif.Orientation };
+            }
+            result.Add(file);
+        }
+        return result;
     }
 
     private readonly AppSettings _settings = AppSettings.Load();
@@ -129,6 +175,12 @@ public sealed partial class MainViewModel : ObservableObject
         {
             Groups = null;
             Watch(item?.Category == LibraryCategory.Folder ? item.Path : null);
+        }
+        if (item is not null && TagOf(item.Category) is var tag and not PhotoTag.None)
+        {
+            var tagged = await Task.Run(() => TimelineBuilder.ByMonth(TaggedFiles(tag)), cts.Token);
+            if (!cts.IsCancellationRequested) Groups = tagged;
+            return;
         }
         if (item is not { Category: LibraryCategory.Folder, Path: { } folder }) return;
         IsLoading = !refresh;

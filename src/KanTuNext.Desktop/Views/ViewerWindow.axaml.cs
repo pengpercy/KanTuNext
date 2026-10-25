@@ -23,6 +23,25 @@ public partial class ViewerWindow : Window
         });
         PointerMoved += (_, _) => ShowToolbar();
         Opened += (_, _) => { ShowToolbar(); Viewer.Focus(); };
+        Closed += (_, _) => Model?.Close();
+        DataContextChanged += (_, _) =>
+        {
+            if (Model is not { } vm) return;
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ViewerViewModel.Index)) Viewer.ResetOnNextSource = true;
+                if (e.PropertyName is nameof(ViewerViewModel.Tag) or nameof(ViewerViewModel.Index)) UpdateTagButtons();
+            };
+            UpdateTagButtons();
+        };
+    }
+
+    private void UpdateTagButtons()
+    {
+        var tag = Model?.Tag ?? KanTuNext.Core.Library.PhotoTag.None;
+        TagGood.Classes.Set("on", tag == KanTuNext.Core.Library.PhotoTag.Good);
+        TagNeutral.Classes.Set("on", tag == KanTuNext.Core.Library.PhotoTag.Neutral);
+        TagBad.Classes.Set("on", tag == KanTuNext.Core.Library.PhotoTag.Bad);
     }
 
     private ViewerViewModel? Model => DataContext as ViewerViewModel;
@@ -65,6 +84,7 @@ public partial class ViewerWindow : Window
             case Key.D1 or Key.NumPad1: Viewer.ActualSize(); break;
             case Key.R: Viewer.Rotate(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 1 : -1); break;
             case Key.Escape: Close(); break;
+            case Key.Delete or Key.Back: _ = DeleteAsync(); break;
             default: return;
         }
         e.Handled = true;
@@ -78,4 +98,18 @@ public partial class ViewerWindow : Window
     private void OnFit(object? sender, RoutedEventArgs e) => Viewer.FitToView();
     private void OnRotate(object? sender, RoutedEventArgs e) => Viewer.Rotate(-1);
     private void OnClose(object? sender, RoutedEventArgs e) => Close();
+    private void OnDelete(object? sender, RoutedEventArgs e) => _ = DeleteAsync();
+
+    private void OnTag(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string name } && Enum.TryParse<KanTuNext.Core.Library.PhotoTag>(name, out var tag))
+            Model?.ToggleTag(tag);
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (Model is not { } vm) return;
+        await vm.DeleteCurrentAsync();
+        if (vm.IsEmpty) Close();
+    }
 }
