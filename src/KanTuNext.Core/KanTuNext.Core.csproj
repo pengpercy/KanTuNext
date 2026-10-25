@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- UI-free logic: library scanning, metadata, timeline grouping. Unit-tested without Avalonia. -->
+  <PropertyGroup>
+    <RootNamespace>KanTuNext.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="KanTuNext.Tests" />
+  </ItemGroup>
+</Project>

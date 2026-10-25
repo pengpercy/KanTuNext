@@ -1,0 +1,41 @@
+**/bin/
+**/obj/
+.packages/
+.nuget/
+.cache/
+artifacts/
+*.user
+*.suo
+.DS_Store
+.idea/
+.vscode/
+**/packages.*.lock.json
+
+# Packaging outputs
+build/KanTuNext/
+build/KanTuNext.app/
+build/KanTuNext.AppDir/
+build/*.dmg
+build/*.zip
+build/*.AppImage
+build/*.deb
+build/*.rpm
+build/appimagetool
+
+# Local release notes
+tools/local/*
+!tools/local/release.sh
+
+# Screenshots of the user's own files (never committed)
+legacy/private/
+build/icons/
+build/deb-root/
+build/rpm-top/
+
+# Design work and reference material stay local
+design/
+legacy/
+legacy/*.dylib
+
+# Plan and progress notes stay local
+docs/

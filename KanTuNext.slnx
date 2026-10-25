@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KanTuNext.Core/KanTuNext.Core.csproj" />
+    <Project Path="src/KanTuNext.Desktop/KanTuNext.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/KanTuNext.Tests/KanTuNext.Tests.csproj" />
+  </Folder>
+</Solution>

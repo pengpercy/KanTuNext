@@ -1,0 +1,6 @@
+<linker>
+  <!-- Compiled XAML types are reached through App; root it explicitly -->
+  <assembly fullname="KanTuNext">
+    <type fullname="KanTuNext.Desktop.App" preserve="All" />
+  </assembly>
+</linker>

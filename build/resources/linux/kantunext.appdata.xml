@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.kantunext.app</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>看图</name>
+  <summary>离线看图与图片整理</summary>
+  <description><p>Offline image viewer and organizer, a rewrite of the discontinued 看图.</p></description>
+  <launchable type="desktop-id">com.kantunext.app.desktop</launchable>
+</component>

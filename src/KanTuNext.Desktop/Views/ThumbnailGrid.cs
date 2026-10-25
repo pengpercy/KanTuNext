@@ -1,0 +1,240 @@
+using System.Globalization;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.VisualTree;
+using KanTuNext.Core.Library;
+using KanTuNext.Core.Timeline;
+using KanTuNext.Desktop.Services;
+
+namespace KanTuNext.Desktop.Views;
+
+/// <summary>
+/// The month-grouped thumbnail grid. Instead of one control per photo it lays the whole timeline out as
+/// arithmetic and draws only the rows inside the ScrollViewer's viewport, so 100k items cost the same per
+/// frame as 100. Thumbnails come from <see cref="ThumbnailService"/>; off-screen requests are dropped.
+/// Metrics follow the original 2.5.2 timeline: 28pt side padding, large first month title, smaller ones below.
+/// </summary>
+public sealed class ThumbnailGrid : Control
+{
+    public static readonly StyledProperty<IReadOnlyList<MonthGroup>?> GroupsProperty =
+        AvaloniaProperty.Register<ThumbnailGrid, IReadOnlyList<MonthGroup>?>(nameof(Groups));
+    public static readonly StyledProperty<double> ItemEdgeProperty =
+        AvaloniaProperty.Register<ThumbnailGrid, double>(nameof(ItemEdge), 70);
+    public static readonly StyledProperty<double> ItemGapProperty =
+        AvaloniaProperty.Register<ThumbnailGrid, double>(nameof(ItemGap), 20);
+
+    private const double SidePadding = 28, TopPadding = 0, FirstHeader = 52, Header = 44, SectionGap = 14, BottomPadding = 24;
+
+    private readonly List<Section> _sections = [];
+    private readonly Dictionary<(string, double, IBrush), FormattedText> _texts = [];
+    private ScrollViewer? _scroller;
+    private int _columns = 1;
+    private (int Section, int Item)? _selected;
+
+    static ThumbnailGrid()
+    {
+        AffectsMeasure<ThumbnailGrid>(GroupsProperty, ItemEdgeProperty, ItemGapProperty);
+        AffectsRender<ThumbnailGrid>(GroupsProperty, ItemEdgeProperty, ItemGapProperty);
+        FocusableProperty.OverrideDefaultValue<ThumbnailGrid>(true);
+    }
+
+    public ThumbnailGrid()
+    {
+        ClipToBounds = true;
+        ActualThemeVariantChanged += (_, _) => { _texts.Clear(); InvalidateVisual(); };
+    }
+
+    public IReadOnlyList<MonthGroup>? Groups { get => GetValue(GroupsProperty); set => SetValue(GroupsProperty, value); }
+    public double ItemEdge { get => GetValue(ItemEdgeProperty); set => SetValue(ItemEdgeProperty, value); }
+    public double ItemGap { get => GetValue(ItemGapProperty); set => SetValue(ItemGapProperty, value); }
+
+    /// <summary>Raised on double-click or Enter with the chosen file (opens the viewer).</summary>
+    public event Action<MediaFile>? Opened;
+
+    private readonly record struct Section(MonthGroup Group, double Top, double ItemsTop, int Rows, double Bottom);
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _scroller = this.FindAncestorOfType<ScrollViewer>();
+        if (_scroller is not null) _scroller.ScrollChanged += OnScrollChanged;
+        ThumbnailService.Shared.ThumbnailReady += InvalidateVisual;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (_scroller is not null) _scroller.ScrollChanged -= OnScrollChanged;
+        ThumbnailService.Shared.ThumbnailReady -= InvalidateVisual;
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == GroupsProperty)
+        {
+            _selected = null;
+            // A fresh folder starts at the top; a live refresh (old list replaced by a new one) keeps the position
+            if (change.OldValue is null) _scroller?.ScrollToHome();
+        }
+    }
+
+    private void OnScrollChanged(object? sender, ScrollChangedEventArgs e) => InvalidateVisual();
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        var width = double.IsInfinity(availableSize.Width) ? 800 : availableSize.Width;
+        var pitch = ItemEdge + ItemGap;
+        _columns = Math.Max(1, (int)((width - 2 * SidePadding + ItemGap) / pitch));
+        _sections.Clear();
+        var y = TopPadding;
+        if (Groups is { } groups)
+        {
+            for (var i = 0; i < groups.Count; i++)
+            {
+                var group = groups[i];
+                var itemsTop = y + (i == 0 ? FirstHeader : Header);
+                var rows = (group.Items.Count + _columns - 1) / _columns;
+                var bottom = itemsTop + rows * pitch - ItemGap;
+                _sections.Add(new Section(group, y, itemsTop, rows, bottom));
+                y = bottom + SectionGap;
+            }
+        }
+        return new Size(width, y + BottomPadding);
+    }
+
+    private Rect ItemRect(Section section, int index)
+    {
+        var pitch = ItemEdge + ItemGap;
+        return new Rect(SidePadding + index % _columns * pitch, section.ItemsTop + index / _columns * pitch, ItemEdge, ItemEdge);
+    }
+
+    public override void Render(DrawingContext context)
+    {
+        var viewport = _scroller is null
+            ? new Rect(Bounds.Size)
+            : new Rect(new Point(_scroller.Offset.X, _scroller.Offset.Y), _scroller.Viewport);
+        // One extra row above and below so a slow scroll finds its thumbnails ready
+        var prefetch = viewport.Inflate(new Thickness(0, ItemEdge + ItemGap));
+        var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+        var bucket = ThumbnailService.Bucket(ItemEdge * scaling);
+        var service = ThumbnailService.Shared;
+        var visibleKeys = new HashSet<string>();
+
+        var text = Brush("TextBrush", Brushes.White);
+        var placeholder = Brush("SidebarHoverBrush", Brushes.Gray);
+        var faint = Brush("FaintBrush", Brushes.Gray);
+        var accent = Brush("AccentBrush", Brushes.DodgerBlue);
+        var selectionPen = new Pen(accent, 2);
+        var pitch = ItemEdge + ItemGap;
+
+        for (var s = 0; s < _sections.Count; s++)
+        {
+            var section = _sections[s];
+            if (section.Bottom < prefetch.Top) continue;
+            if (section.Top > prefetch.Bottom) break;
+
+            if (section.ItemsTop > viewport.Top - FirstHeader)
+            {
+                var title = Text(section.Group.Title, s == 0 ? 26 : 18, text);
+                var count = Text(section.Group.CountText, 14, text);
+                var baseline = section.ItemsTop - 12;
+                context.DrawText(title, new Point(SidePadding, baseline - title.Baseline));
+                context.DrawText(count, new Point(SidePadding + title.Width + 18, baseline - count.Baseline));
+            }
+
+            var firstRow = Math.Max(0, (int)((prefetch.Top - section.ItemsTop) / pitch));
+            var lastRow = Math.Min(section.Rows - 1, (int)((prefetch.Bottom - section.ItemsTop) / pitch));
+            var items = section.Group.Items;
+            for (var i = firstRow * _columns; i <= Math.Min(items.Count - 1, (lastRow + 1) * _columns - 1); i++)
+            {
+                var item = items[i];
+                var rect = ItemRect(section, i);
+                if (item.Kind == MediaKind.Video)
+                {
+                    context.FillRectangle(placeholder, rect);
+                    DrawPlayBadge(context, rect, faint);
+                }
+                else
+                {
+                    visibleKeys.Add(ThumbnailService.KeyOf(item.Path, item.Modified, bucket));
+                    if (service.Get(item.Path, item.Modified, bucket) is { } bitmap)
+                        context.DrawImage(bitmap, new Rect(bitmap.Size), rect);
+                    else
+                        context.FillRectangle(placeholder, rect);
+                }
+                if (_selected == (s, i))
+                    context.DrawRectangle(null, selectionPen, rect.Inflate(1));
+            }
+        }
+        service.Retain(visibleKeys);
+    }
+
+    private static void DrawPlayBadge(DrawingContext context, Rect rect, IBrush brush)
+    {
+        var c = rect.Center;
+        var r = Math.Min(14, rect.Width / 5);
+        context.DrawEllipse(null, new Pen(brush, 1.5), c, r, r);
+        var tri = new StreamGeometry();
+        using (var g = tri.Open())
+        {
+            g.BeginFigure(new Point(c.X - r * 0.35, c.Y - r * 0.5), true);
+            g.LineTo(new Point(c.X + r * 0.55, c.Y));
+            g.LineTo(new Point(c.X - r * 0.35, c.Y + r * 0.5));
+            g.EndFigure(true);
+        }
+        context.DrawGeometry(brush, null, tri);
+    }
+
+    private IBrush Brush(string key, IBrush fallback) =>
+        this.TryFindResource(key, ActualThemeVariant, out var value) && value is IBrush brush ? brush : fallback;
+
+    private FormattedText Text(string value, double size, IBrush brush)
+    {
+        if (!_texts.TryGetValue((value, size, brush), out var formatted))
+        {
+            formatted = new FormattedText(value, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, Typeface.Default, size, brush);
+            _texts[(value, size, brush)] = formatted;
+            if (_texts.Count > 512) _texts.Clear();
+        }
+        return formatted;
+    }
+
+    private (int Section, int Item)? HitTest(Point point)
+    {
+        var pitch = ItemEdge + ItemGap;
+        for (var s = 0; s < _sections.Count; s++)
+        {
+            var section = _sections[s];
+            if (point.Y < section.ItemsTop || point.Y > section.Bottom) continue;
+            var col = (int)((point.X - SidePadding) / pitch);
+            var row = (int)((point.Y - section.ItemsTop) / pitch);
+            if (col < 0 || col >= _columns) return null;
+            var index = row * _columns + col;
+            if (index >= section.Group.Items.Count || !ItemRect(section, index).Contains(point)) return null;
+            return (s, index);
+        }
+        return null;
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        Focus();
+        _selected = HitTest(e.GetPosition(this));
+        InvalidateVisual();
+        if (e.ClickCount == 2 && _selected is var (s, i)) Opened?.Invoke(_sections[s].Group.Items[i]);
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Key == Key.Enter && _selected is var (s, i))
+        {
+            Opened?.Invoke(_sections[s].Group.Items[i]);
+            e.Handled = true;
+        }
+    }
+}

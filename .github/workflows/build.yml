@@ -1,0 +1,79 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Version to stamp; empty uses the VERSION file
+        type: string
+        default: ''
+
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows x64, os: windows-2022, runtime: win-x64 }
+          # Native arm64 runner rather than cross-compiling
+          - { name: Windows arm64, os: windows-11-arm, runtime: win-arm64 }
+          # Same RID, built separately so the regular package stays unchanged
+          - { name: Windows 7 x64, os: windows-2022, runtime: win-x64, package: win7-x64, publish-args: '-p:Win7Compat=true' }
+          # NativeAOT cross-compiles osx-x64 on Apple Silicon; the Intel pool is slower and queues longer
+          - { name: macOS Intel, os: macos-latest, runtime: osx-x64 }
+          - { name: macOS Apple Silicon, os: macos-latest, runtime: osx-arm64 }
+          # ubuntu:20.04 containers keep the glibc 2.31 baseline; arm64 builds on a native runner
+          - { name: Linux x64, os: ubuntu-latest, runtime: linux-x64, container: 'ubuntu:20.04' }
+          - { name: Linux arm64, os: ubuntu-24.04-arm, runtime: linux-arm64, container: 'ubuntu:20.04' }
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container || '' }}
+    env:
+      # Inside the workspace so one cache path works on hosts and in containers
+      NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - name: Linux toolchain
+        if: startsWith(matrix.runtime, 'linux-')
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git clang lld zlib1g-dev libicu66
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - uses: actions/cache@v4
+        with:
+          path: .nuget/packages
+          key: nuget-${{ matrix.package || matrix.runtime }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ matrix.package || matrix.runtime }}-
+      # No separate `dotnet build`: publish compiles everything it needs
+      - name: Publish (NativeAOT)
+        shell: bash
+        run: |
+          dotnet publish src/KanTuNext.Desktop/KanTuNext.Desktop.csproj -c Release -r ${{ matrix.runtime }} --self-contained \
+            -o publish ${{ inputs.version && format('-p:Version={0}', inputs.version) || '' }} -p:TreatWarningsAsErrors=true ${{ matrix.publish-args }}
+      # .dSYM bundles (directories), .dbg and .pdb are never shipped; keep them out of the build artifact
+      - name: Split off debug symbols
+        shell: bash
+        run: |
+          mkdir -p symbols
+          find publish -maxdepth 1 \( -name '*.dSYM' -o -name '*.dbg' -o -name '*.pdb' \) -exec mv {} symbols/ \;
+          du -sh publish/*
+      - uses: actions/upload-artifact@v6
+        with:
+          name: symbols.${{ matrix.package || matrix.runtime }}
+          path: symbols/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Tar (keeps the executable bit)
+        shell: bash
+        run: tar -cf kantunext.tar -C publish .
+      - uses: actions/upload-artifact@v6
+        with:
+          name: kantunext.${{ matrix.package || matrix.runtime }}
+          path: kantunext.tar
+          retention-days: 3

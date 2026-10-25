@@ -1,0 +1,9 @@
+Package: kantunext
+Version: 0.0.0
+Priority: optional
+Section: graphics
+Depends: libx11-6, libice6, libsm6, libfontconfig1
+Architecture: amd64
+Installed-Size: 0
+Maintainer: KanTuNext
+Description: 看图 - offline image viewer and organizer

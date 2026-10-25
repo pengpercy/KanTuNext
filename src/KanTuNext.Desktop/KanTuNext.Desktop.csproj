@@ -1,0 +1,87 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>KanTuNext</AssemblyName>
+    <RootNamespace>KanTuNext.Desktop</RootNamespace>
+    <!-- Windows builds target the Windows SDK so the built-in Windows.Media.Ocr is reachable (phase 3) -->
+    <IsWindowsTarget Condition="$([MSBuild]::IsOSPlatform('Windows')) or $(RuntimeIdentifier.StartsWith('win'))">true</IsWindowsTarget>
+    <TargetFramework Condition="'$(IsWindowsTarget)' == 'true'">net10.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting Condition="'$(IsWindowsTarget)' == 'true'">true</EnableWindowsTargeting>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/kantunext.ico</ApplicationIcon>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <TreatAsLocalProperty>PublishAot;DisableAOT</TreatAsLocalProperty>
+  </PropertyGroup>
+
+  <!-- Win7 package (-p:Win7Compat=true, win-x64 only), as in Downio: YY-Thunks stands in for the Windows 8+
+       APIs the AOT runtime imports and VC-LTL links msvcrt.dll instead of the UCRT. -->
+  <PropertyGroup Condition="'$(Win7Compat)' == 'true' and '$(RuntimeIdentifier)' == 'win-x64'">
+    <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
+    <DefineConstants>$(DefineConstants);WIN7</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(Win7Compat)' == 'true' and '$(RuntimeIdentifier)' == 'win-x64'">
+    <PackageReference Include="YY-Thunks" PrivateAssets="all" />
+    <PackageReference Include="VC-LTL" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Debug: AOT off so the XAML previewer works -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <PublishAot>false</PublishAot>
+    <DebuggerSupport>true</DebuggerSupport>
+    <EnableAotAnalyzer>false</EnableAotAnalyzer>
+    <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+  </PropertyGroup>
+
+  <!-- Release: NativeAOT tuned for size (same set as Downio/VodBox); -p:DisableAOT=true turns it off -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(DisableAOT)' != 'true'">
+    <PublishAot>true</PublishAot>
+    <TrimMode>full</TrimMode>
+    <UseAppHost>true</UseAppHost>
+    <AvaloniaEnableILVerify>true</AvaloniaEnableILVerify>
+    <AvaloniaSkipUnknownCLRInstrumentation>true</AvaloniaSkipUnknownCLRInstrumentation>
+    <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
+    <IlcOptimizationPreference>Size</IlcOptimizationPreference>
+    <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
+    <StripSymbols>true</StripSymbols>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <TieredCompilation>false</TieredCompilation>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>
+    <DebuggerSupport>false</DebuggerSupport>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
+    <EventSourceSupport>false</EventSourceSupport>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <StackTraceSupport>false</StackTraceSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <AppleGenerateDSym>false</AppleGenerateDSym>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\KanTuNext.Core\KanTuNext.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Only what runtime code loads: the window icon (the .ico/.icns masters stay out) -->
+    <AvaloniaResource Include="Assets/kantunext.png" />
+    <TrimmerRootDescriptor Include="Roots.xml" />
+    <TrimmerRootAssembly Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+
+  <!-- An unbundled macOS executable takes its localizations from *.lproj next to it; without them native
+       panels (open/save) are English when running from bin/. Packages get them from the macOS package script. -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <Content Include="../../build/resources/macos/*.lproj/**">
+      <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+</Project>

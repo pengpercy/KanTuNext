@@ -1,0 +1,81 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Sidebar row: macOS source-list style, rounded inset selection (design: 28→32pt rows, radius 6) -->
+  <Style Selector="RadioButton.sidebarItem">
+    <Setter Property="Height" Value="32" />
+    <Setter Property="Padding" Value="2,0,10,0" />
+    <Setter Property="Margin" Value="10,0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="Row" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="RadioButton.sidebarItem:pointerover /template/ Border#Row">
+    <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+  </Style>
+  <Style Selector="RadioButton.sidebarItem:checked /template/ Border#Row">
+    <Setter Property="Background" Value="{DynamicResource SidebarSelectedBrush}" />
+  </Style>
+
+  <!-- 小/中/大/最大 segmented control -->
+  <Style Selector="RadioButton.segment">
+    <Setter Property="Padding" Value="14,3" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="Cell" Background="Transparent" Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="RadioButton.segment:checked /template/ Border#Cell">
+    <Setter Property="Background" Value="{DynamicResource SegmentSelectedBrush}" />
+  </Style>
+
+  <!-- Borderless icon button for the toolbar -->
+  <Style Selector="Button.toolIcon">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="Foreground" Value="{DynamicResource ToolbarIconBrush}" />
+  </Style>
+  <Style Selector="Button.toolIcon:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+  </Style>
+  <Style Selector="Button.toolIcon:disabled /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.toolIcon:disabled PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+  </Style>
+
+  <!-- Drawn caption buttons (Windows, Linux CSD): three square 46px buttons flush with the corner;
+       WindowChrome clears the template's spacing and insets. Keep in sync with CaptionButtonsWidth (138). -->
+  <Style Selector="Button#PART_MinimizeButton, Button#PART_MaximizeButton, Button#PART_CloseButton">
+    <Setter Property="Width" Value="46" />
+    <Setter Property="MinWidth" Value="46" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+  <!-- Win32 never reports AllowedWindowActions, so Avalonia 12.1 adds a full-screen button; hide it
+       (12.2: use WindowDrawnDecorations.TitleBarDecorations instead). -->
+  <Style Selector="Button#PART_FullScreenButton, Button#PART_PopoverFullScreenButton">
+    <Setter Property="IsVisible" Value="False" />
+    <Setter Property="Width" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MaxWidth" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0" />
+  </Style>
+</Styles>

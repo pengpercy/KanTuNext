@@ -1,0 +1,127 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:KanTuNext.Desktop.ViewModels"
+        xmlns:views="clr-namespace:KanTuNext.Desktop.Views"
+        xmlns:chrome="clr-namespace:Avalonia.Controls.Chrome;assembly=Avalonia.Controls"
+        x:Class="KanTuNext.Desktop.Views.MainWindow" x:DataType="vm:MainViewModel"
+        Title="看图" Icon="/Assets/kantunext.png"
+        Width="1200" Height="650" MinWidth="820" MinHeight="480"
+        Background="{DynamicResource PageBrush}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="52"
+        WindowDecorations="Full"
+        FontSize="13">
+  <!-- Measured on the original 2.5.2: 1200×650 window, ~270pt sidebar, 32pt rows, 52pt toolbar -->
+  <Grid ColumnDefinitions="270,*" chrome:WindowDecorationProperties.ElementRole="User">
+
+    <!-- Sidebar -->
+    <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}"
+            BorderBrush="{DynamicResource SidebarBorderBrush}" BorderThickness="0,0,1,0">
+      <DockPanel>
+        <!-- Traffic lights / drag area above the list -->
+        <Border DockPanel.Dock="Top" Height="44" Background="Transparent"
+                chrome:WindowDecorationProperties.ElementRole="TitleBar" />
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding Sections}" Margin="0,0,0,12">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:SidebarSection">
+                <StackPanel>
+                  <Grid ColumnDefinitions="*,Auto" Margin="20,12,20,4">
+                    <TextBlock Text="{Binding Header}" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource SidebarHeaderBrush}" />
+                    <Button Grid.Column="1" Classes="toolIcon" Padding="2" IsVisible="{Binding CanAdd}"
+                            ToolTip.Tip="添加文件夹" Click="OnAddFolder">
+                      <PathIcon Data="{StaticResource Icon.plus}" Width="12" Height="12"
+                                Foreground="{DynamicResource SidebarHeaderBrush}" />
+                    </Button>
+                  </Grid>
+                  <ItemsControl ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:SidebarItem">
+                        <RadioButton Classes="sidebarItem" GroupName="sidebar" IsChecked="{Binding IsSelected}">
+                          <Grid ColumnDefinitions="14,6,16,9,*,Auto">
+                            <PathIcon Data="{StaticResource Icon.chevron-right}" Width="12" Height="12"
+                                      Foreground="{DynamicResource SidebarHeaderBrush}" IsVisible="{Binding Expandable}" />
+                            <PathIcon Grid.Column="2" Data="{Binding Icon}" Width="16" Height="16"
+                                      Foreground="{DynamicResource SidebarIconBrush}" />
+                            <TextBlock Grid.Column="4" Text="{Binding Title}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="5" Text="{Binding Count}" FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SidebarCountBrush}" />
+                          </Grid>
+                        </RadioButton>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
+    <!-- Content -->
+    <Grid Grid.Column="1" RowDefinitions="52,*">
+      <Grid x:Name="Toolbar" Grid.Row="0" ColumnDefinitions="*,Auto,*" Margin="24,0,24,0" Background="Transparent"
+            chrome:WindowDecorationProperties.ElementRole="TitleBar">
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" HorizontalAlignment="Left"
+                    chrome:WindowDecorationProperties.ElementRole="User">
+          <Button Classes="toolIcon" IsEnabled="False" ToolTip.Tip="返回">
+            <PathIcon Data="{StaticResource Icon.chevron-left}" Width="20" Height="20" />
+          </Button>
+          <TextBox Width="164" Height="26" MinHeight="26" Padding="4,3" FontSize="12" CornerRadius="6"
+                   PlaceholderText="找图" VerticalContentAlignment="Center">
+            <TextBox.InnerLeftContent>
+              <PathIcon Data="{StaticResource Icon.magnify}" Width="14" Height="14" Margin="8,0,0,0"
+                        Foreground="{DynamicResource SubTextBrush}" />
+            </TextBox.InnerLeftContent>
+          </TextBox>
+        </StackPanel>
+        <Border Grid.Column="1" VerticalAlignment="Center" CornerRadius="4" ClipToBounds="True"
+                Background="{DynamicResource SegmentBrush}" BorderBrush="{DynamicResource SegmentBorderBrush}"
+                BorderThickness="1" chrome:WindowDecorationProperties.ElementRole="User">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton Classes="segment" GroupName="size" Content="小" IsChecked="{Binding IsSmall}" />
+            <RadioButton Classes="segment" GroupName="size" Content="中" IsChecked="{Binding IsMedium}" />
+            <RadioButton Classes="segment" GroupName="size" Content="大" IsChecked="{Binding IsLarge}" />
+            <RadioButton Classes="segment" GroupName="size" Content="最大" IsChecked="{Binding IsLargest}" />
+          </StackPanel>
+        </Border>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center"
+                    HorizontalAlignment="Right" chrome:WindowDecorationProperties.ElementRole="User">
+          <Button Classes="toolIcon" ToolTip.Tip="分享">
+            <PathIcon Data="{StaticResource Icon.export-variant}" Width="18" Height="18" />
+          </Button>
+          <Button Classes="toolIcon" ToolTip.Tip="简介">
+            <PathIcon Data="{StaticResource Icon.information-outline}" Width="18" Height="18" />
+          </Button>
+        </StackPanel>
+      </Grid>
+
+      <ScrollViewer Grid.Row="1" IsVisible="{Binding HasItems}" HorizontalScrollBarVisibility="Disabled">
+        <views:ThumbnailGrid x:Name="Grid" Groups="{Binding Groups}" ItemEdge="{Binding ItemEdge}" ItemGap="{Binding ItemGap}" />
+      </ScrollViewer>
+
+      <TextBlock Grid.Row="1" IsVisible="{Binding IsLoading}" Text="正在读取…" FontSize="13"
+                 HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource SubTextBrush}" />
+
+      <!-- Empty state, after the original: dashed photo behind a folder -->
+      <StackPanel Grid.Row="1" IsVisible="{Binding ShowEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="22" Margin="0,0,0,60">
+        <Canvas Width="200" Height="176" HorizontalAlignment="Center">
+          <Path Stroke="{DynamicResource EmptyArtBrush}" StrokeThickness="1.6" StrokeDashArray="3.75,3.1"
+                Data="M48,2 H192 A6,6 0 0 1 198,8 V114 A6,6 0 0 1 192,120 H48 A6,6 0 0 1 42,114 V8 A6,6 0 0 1 48,2 Z" />
+          <Ellipse Canvas.Left="74" Canvas.Top="18" Width="32" Height="32" Stroke="{DynamicResource EmptyArtBrush}"
+                   StrokeThickness="1.6" StrokeDashArray="3.1,2.5" />
+          <Path Stroke="{DynamicResource EmptyArtBrush}" StrokeThickness="1.6" StrokeDashArray="3.75,3.1"
+                Data="M118,120 C130,60 180,50 198,88" />
+          <Path Stroke="{DynamicResource EmptyArtBrush}" StrokeThickness="1.6" Fill="{DynamicResource PageBrush}"
+                StrokeJoin="Round"
+                Data="M14,58 H54 L64,70 H146 A6,6 0 0 1 152,76 V164 A8,8 0 0 1 144,172 H20 A8,8 0 0 1 12,164 L2,72 A6,6 0 0 1 8,64 H14 Z" />
+        </Canvas>
+        <TextBlock Text="{Binding EmptyText}" FontSize="15" HorizontalAlignment="Center"
+                   Foreground="{DynamicResource SubTextBrush}" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>
