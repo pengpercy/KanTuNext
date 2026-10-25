@@ -45,8 +45,9 @@
     </Style>
   </Window.Styles>
 
-  <Grid chrome:WindowDecorationProperties.ElementRole="User">
-    <views:ZoomImage x:Name="Viewer" Source="{Binding Image}" />
+  <Grid ColumnDefinitions="*,Auto" chrome:WindowDecorationProperties.ElementRole="User">
+  <Grid Grid.Column="0">
+    <views:ZoomImage x:Name="Viewer" Source="{Binding Image}" Highlights="{Binding OcrBoxes}" />
 
     <TextBlock IsVisible="{Binding ShowError}" Text="无法打开这张图片" Foreground="#99FFFFFF" FontSize="14"
                HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -99,6 +100,10 @@
         <Button Classes="viewerTool" ToolTip.Tip="旋转（R）" Click="OnRotate">
           <PathIcon Data="{StaticResource Icon.rotate-left}" Width="22" Height="22" />
         </Button>
+        <Button x:Name="OcrButton" Classes="viewerTool" ToolTip.Tip="识别文字（T）" Click="OnOcr"
+                IsVisible="{Binding OcrAvailable}" Classes.on="{Binding ShowOcr}">
+          <PathIcon Data="{StaticResource Icon.text-recognition}" Width="22" Height="22" />
+        </Button>
         <Button Classes="viewerTool" ToolTip.Tip="移到废纸篓（Delete）" Click="OnDelete">
           <PathIcon Data="{StaticResource Icon.trash-can-outline}" Width="22" Height="22" />
         </Button>
@@ -106,6 +111,25 @@
           <PathIcon Data="{StaticResource Icon.dots-grid}" Width="22" Height="22" />
         </Button>
       </StackPanel>
+    </Border>
+  </Grid>
+
+    <!-- Recognized text, in reading order; selectable, with copy-all -->
+    <Border Grid.Column="1" Width="300" IsVisible="{Binding ShowOcr}" Background="#1C1C1E"
+            BorderBrush="#33FFFFFF" BorderThickness="1,0,0,0">
+      <DockPanel Margin="16,44,12,16">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+          <TextBlock Text="识别文字" FontSize="14" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Content="复制全部" Click="OnCopyText" IsEnabled="{Binding HasOcrText}"
+                  FontSize="12" Padding="10,4" />
+        </Grid>
+        <TextBlock DockPanel.Dock="Top" Text="{Binding OcrStatus}" IsVisible="{Binding OcrStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                   Foreground="#99FFFFFF" FontSize="12" Margin="0,0,0,8" />
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <SelectableTextBlock Text="{Binding OcrText}" TextWrapping="Wrap" FontSize="13" LineHeight="20"
+                               Foreground="#E6FFFFFF" SelectionBrush="#662E9BFF" />
+        </ScrollViewer>
+      </DockPanel>
     </Border>
   </Grid>
 </Window>

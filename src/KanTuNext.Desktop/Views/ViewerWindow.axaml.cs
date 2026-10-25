@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using KanTuNext.Desktop.Services;
@@ -85,6 +86,10 @@ public partial class ViewerWindow : Window
             case Key.R: Viewer.Rotate(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 1 : -1); break;
             case Key.Escape: Close(); break;
             case Key.Delete or Key.Back: _ = DeleteAsync(); break;
+            case Key.T when vm.OcrAvailable: vm.ToggleOcr(); break;
+            case Key.C when e.KeyModifiers.HasFlag(KeyModifiers.Meta) || e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                if (vm.HasOcrText && vm.ShowOcr) _ = CopyTextAsync(); else return;
+                break;
             default: return;
         }
         e.Handled = true;
@@ -99,6 +104,14 @@ public partial class ViewerWindow : Window
     private void OnRotate(object? sender, RoutedEventArgs e) => Viewer.Rotate(-1);
     private void OnClose(object? sender, RoutedEventArgs e) => Close();
     private void OnDelete(object? sender, RoutedEventArgs e) => _ = DeleteAsync();
+    private void OnOcr(object? sender, RoutedEventArgs e) => Model?.ToggleOcr();
+    private void OnCopyText(object? sender, RoutedEventArgs e) => _ = CopyTextAsync();
+
+    private async Task CopyTextAsync()
+    {
+        if (Model is { HasOcrText: true } vm && Clipboard is { } clipboard)
+            await clipboard.SetTextAsync(vm.OcrText);
+    }
 
     private void OnTag(object? sender, RoutedEventArgs e)
     {

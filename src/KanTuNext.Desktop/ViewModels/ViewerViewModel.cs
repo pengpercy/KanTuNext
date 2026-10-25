@@ -2,7 +2,9 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using KanTuNext.Core.Library;
+using KanTuNext.Core.Ocr;
 using KanTuNext.Desktop.Services;
+using KanTuNext.Desktop.Services.Ocr;
 
 namespace KanTuNext.Desktop.ViewModels;
 
@@ -43,6 +45,61 @@ public sealed partial class ViewerViewModel : ObservableObject
     public bool CanGoForward => Index < _items.Count - 1;
     public bool ShowError => !IsLoading && Image is null && Current is not null;
     public bool IsEmpty => _items.Count == 0;
+
+    // ---- OCR
+    public bool OcrAvailable => OcrEngines.IsAvailable;
+
+    [ObservableProperty]
+    public partial bool ShowOcr { get; private set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OcrStatus))]
+    public partial bool IsRecognizing { get; private set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OcrStatus), nameof(HasOcrText))]
+    public partial OcrResult? Ocr { get; private set; }
+
+    public string OcrText => Ocr?.Text ?? "";
+    public bool HasOcrText => OcrText.Length > 0;
+    public IReadOnlyList<OcrRect>? OcrBoxes => ShowOcr ? Ocr?.Lines.Select(l => l.Bounds).ToArray() : null;
+    public string OcrStatus => IsRecognizing ? "正在识别…" : Ocr is { Lines.Count: 0 } ? "没有识别到文字" : "";
+
+    private CancellationTokenSource? _ocr;
+
+    public void ToggleOcr()
+    {
+        ShowOcr = !ShowOcr;
+        if (ShowOcr) _ = RecognizeAsync();
+        else _ocr?.Cancel();
+        OnPropertyChanged(nameof(OcrBoxes));
+    }
+
+    private async Task RecognizeAsync()
+    {
+        _ocr?.Cancel();
+        var cts = _ocr = new CancellationTokenSource();
+        Ocr = null;
+        OnPropertyChanged(nameof(OcrText));
+        OnPropertyChanged(nameof(OcrBoxes));
+        if (Current is not { } item) return;
+        IsRecognizing = true;
+        try
+        {
+            var result = await OcrEngines.RecognizeAsync(item.Path, item.Orientation, cts.Token);
+            if (cts.IsCancellationRequested) return;
+            Ocr = result;
+            OnPropertyChanged(nameof(OcrText));
+            OnPropertyChanged(nameof(OcrBoxes));
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (_ocr == cts) IsRecognizing = false;
+        }
+    }
 
     public PhotoTag Tag => Current is { } c ? AppServices.Tags.Get(c.Path) : PhotoTag.None;
 
@@ -92,6 +149,7 @@ public sealed partial class ViewerViewModel : ObservableObject
         Image = loaded?.First;
         IsLoading = false;
         if (loaded is { IsAnimated: true }) StartAnimation();
+        if (ShowOcr) _ = RecognizeAsync();
         if (CanGoForward) Loader.Prefetch(_items[Index + 1].Path);
         if (CanGoBack) Loader.Prefetch(_items[Index - 1].Path);
     }

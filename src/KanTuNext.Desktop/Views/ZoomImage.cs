@@ -17,6 +17,13 @@ public sealed class ZoomImage : Control
     public static readonly StyledProperty<Bitmap?> SourceProperty =
         AvaloniaProperty.Register<ZoomImage, Bitmap?>(nameof(Source));
 
+    /// <summary>Regions to highlight (recognized text lines), normalized to the upright image.</summary>
+    public static readonly StyledProperty<IReadOnlyList<KanTuNext.Core.Ocr.OcrRect>?> HighlightsProperty =
+        AvaloniaProperty.Register<ZoomImage, IReadOnlyList<KanTuNext.Core.Ocr.OcrRect>?>(nameof(Highlights));
+
+    private static readonly IBrush HighlightFill = new SolidColorBrush(Color.FromArgb(0x33, 0x2E, 0x9B, 0xFF));
+    private static readonly IPen HighlightPen = new Pen(new SolidColorBrush(Color.FromArgb(0xCC, 0x2E, 0x9B, 0xFF)), 1);
+
     private const double MinZoom = 0.02, MaxZoom = 32;
 
     private double _zoom = 1;          // DIPs (points) per image pixel
@@ -27,7 +34,7 @@ public sealed class ZoomImage : Control
 
     static ZoomImage()
     {
-        AffectsRender<ZoomImage>(SourceProperty);
+        AffectsRender<ZoomImage>(SourceProperty, HighlightsProperty);
         FocusableProperty.OverrideDefaultValue<ZoomImage>(true);
     }
 
@@ -39,6 +46,12 @@ public sealed class ZoomImage : Control
     }
 
     public Bitmap? Source { get => GetValue(SourceProperty); set => SetValue(SourceProperty, value); }
+
+    public IReadOnlyList<KanTuNext.Core.Ocr.OcrRect>? Highlights
+    {
+        get => GetValue(HighlightsProperty);
+        set => SetValue(HighlightsProperty, value);
+    }
 
     /// <summary>Raised when zoom, fit mode or rotation changes (toolbar state, zoom readout).</summary>
     public event Action? ViewChanged;
@@ -152,6 +165,17 @@ public sealed class ZoomImage : Control
         using (context.PushTransform(transform))
         using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = mode }))
             context.DrawImage(bitmap, new Rect(0, 0, w, h));
+
+        if (Highlights is { Count: > 0 } boxes)
+        {
+            // Same transform as the image, so boxes follow zoom, pan and rotation; the pen is in screen units
+            using (context.PushTransform(transform))
+            {
+                var pen = new Pen(HighlightPen.Brush, 1 / dipPerPixel);
+                foreach (var b in boxes)
+                    context.DrawRectangle(HighlightFill, pen, new Rect(b.X * w, b.Y * h, b.Width * w, b.Height * h), 2 / dipPerPixel, 2 / dipPerPixel);
+            }
+        }
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
