@@ -158,8 +158,11 @@ public sealed class ThumbnailService
             return new Bitmap(stream);
         }
 
-        SKBitmap? decoded;
+        SKBitmap? decoded = null;
         var origin = SKEncodedOrigin.TopLeft;
+        if (KanTuNext.Core.Library.MediaTypes.KindOf(request.Path) == KanTuNext.Core.Library.MediaKind.Video)
+            decoded = PlatformDecoder.VideoFrame(request.Path, request.Edge * 3);
+        else
         using (var source = File.OpenRead(request.Path))
         using (var codec = SKCodec.Create(source))
         {

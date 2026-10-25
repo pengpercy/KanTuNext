@@ -13,6 +13,28 @@ namespace KanTuNext.Desktop.Services;
 /// </summary>
 internal static class WindowsImageDecoder
 {
+    /// <summary>The shell's thumbnail of a video (what Explorer shows), decoded; null if there is none.</summary>
+    public static SKBitmap? VideoFrame(string path, int maxEdge)
+    {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 10240)) return null;
+        try
+        {
+            var file = StorageFile.GetFileFromPathAsync(path).AsTask().GetAwaiter().GetResult();
+            using var thumb = file.GetThumbnailAsync(Windows.Storage.FileProperties.ThumbnailMode.VideosView, (uint)Math.Min(maxEdge, 1024))
+                .AsTask().GetAwaiter().GetResult();
+            if (thumb is null || thumb.Size == 0) return null;
+            using var stream = thumb.AsStreamForRead();
+            using var copy = new MemoryStream();
+            stream.CopyTo(copy);
+            copy.Position = 0;
+            return SKBitmap.Decode(copy);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     public static SKBitmap? Decode(string path, int maxEdge)
     {
         if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 10240)) return null;

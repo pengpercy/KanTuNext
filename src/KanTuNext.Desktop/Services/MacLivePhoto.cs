@@ -37,7 +37,12 @@ internal static class MacLivePhoto
         objc_getClass("AVAssetImageGenerator") != IntPtr.Zero);
 
     /// <summary>The clip's frames, or null if it can't be read.</summary>
-    public static IReadOnlyList<SKBitmap>? Frames(string clipPath)
+    public static IReadOnlyList<SKBitmap>? Frames(string clipPath) => Extract(clipPath, MaxEdge, MaxFrames) is { Count: > 1 } f ? f : null;
+
+    /// <summary>One frame near the start of a video (thumbnails), at most <paramref name="maxEdge"/>.</summary>
+    public static SKBitmap? FirstFrame(string videoPath, int maxEdge) => Extract(videoPath, maxEdge, 1)?.FirstOrDefault();
+
+    private static List<SKBitmap>? Extract(string clipPath, int maxEdge, int maxFrames)
     {
         if (!Loaded.Value) return null;
         var pool = Send(Send(Class("NSAutoreleasePool"), Sel("alloc")), Sel("init"));
@@ -53,15 +58,17 @@ internal static class MacLivePhoto
 
             var generator = Send(Class("AVAssetImageGenerator"), Sel("assetImageGeneratorWithAsset:"), asset);
             SendBool(generator, Sel("setAppliesPreferredTrackTransform:"), 1);
-            SendSize(generator, Sel("setMaximumSize:"), new CGSize { Width = MaxEdge, Height = MaxEdge });
+            SendSize(generator, Sel("setMaximumSize:"), new CGSize { Width = maxEdge, Height = maxEdge });
             var exact = CMTime.FromSeconds(0);
             SendTime(generator, Sel("setRequestedTimeToleranceBefore:"), exact);
             SendTime(generator, Sel("setRequestedTimeToleranceAfter:"), exact);
 
-            var count = Math.Min(MaxFrames, Math.Max(1, (int)(duration * FramesPerSecond)));
+            var count = Math.Min(maxFrames, Math.Max(1, (int)(duration * FramesPerSecond)));
             for (var i = 0; i < count; i++)
             {
-                var image = CopyImage(generator, Sel("copyCGImageAtTime:actualTime:error:"), CMTime.FromSeconds(i / FramesPerSecond), IntPtr.Zero, IntPtr.Zero);
+                // A single frame (thumbnail) is taken a little in, past fade-ins and black first frames
+                var at = maxFrames == 1 ? Math.Min(1.0, duration / 3) : i / FramesPerSecond;
+                var image = CopyImage(generator, Sel("copyCGImageAtTime:actualTime:error:"), CMTime.FromSeconds(at), IntPtr.Zero, IntPtr.Zero);
                 if (image == IntPtr.Zero) continue;
                 try
                 {
@@ -72,7 +79,7 @@ internal static class MacLivePhoto
                     MacImageDecoder.CFRelease(image); // "copy": the caller owns it
                 }
             }
-            return frames.Count > 1 ? frames : null;
+            return frames.Count > 0 ? frames : null;
         }
         catch (Exception e) when (e is EntryPointNotFoundException or DllNotFoundException)
         {

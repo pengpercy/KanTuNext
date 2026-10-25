@@ -14,4 +14,14 @@ internal static class PlatformDecoder
 #endif
         return null;
     }
+
+    /// <summary>A representative frame of a video for its thumbnail; null where unsupported (Linux) or unreadable.</summary>
+    public static SKBitmap? VideoFrame(string path, int maxEdge)
+    {
+        if (OperatingSystem.IsMacOS()) return MacLivePhoto.FirstFrame(path, maxEdge);
+#if WINDOWS && !WIN7
+        if (OperatingSystem.IsWindows()) return WindowsImageDecoder.VideoFrame(path, maxEdge);
+#endif
+        return null;
+    }
 }

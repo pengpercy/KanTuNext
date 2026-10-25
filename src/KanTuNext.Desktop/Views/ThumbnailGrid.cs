@@ -169,19 +169,14 @@ public sealed class ThumbnailGrid : Control
             {
                 var item = items[i];
                 var rect = ItemRect(section, i);
-                if (item.Kind == MediaKind.Video)
-                {
-                    context.FillRectangle(placeholder, rect);
-                    DrawPlayBadge(context, rect, faint);
-                }
+                visibleKeys.Add(ThumbnailService.KeyOf(item.Path, item.Modified, bucket));
+                var bitmap = service.Get(item.Path, item.Modified, bucket);
+                if (bitmap is not null)
+                    context.DrawImage(bitmap, new Rect(bitmap.Size), rect);
                 else
-                {
-                    visibleKeys.Add(ThumbnailService.KeyOf(item.Path, item.Modified, bucket));
-                    if (service.Get(item.Path, item.Modified, bucket) is { } bitmap)
-                        context.DrawImage(bitmap, new Rect(bitmap.Size), rect);
-                    else
-                        context.FillRectangle(placeholder, rect);
-                }
+                    context.FillRectangle(placeholder, rect);
+                // Videos carry a play mark over their frame (or over the placeholder where none can be made)
+                if (item.Kind == MediaKind.Video) DrawPlayBadge(context, rect, bitmap is null ? faint : Brushes.White);
                 if (item.IsLivePhoto) DrawLiveBadge(context, rect);
                 if (_selected == (s, i))
                     context.DrawRectangle(null, selectionPen, rect.Inflate(1));
