@@ -46,6 +46,26 @@ public sealed partial class ViewerViewModel : ObservableObject
     public bool ShowError => !IsLoading && Image is null && Current is not null;
     public bool IsEmpty => _items.Count == 0;
 
+    /// <summary>Longest edge for the first decode of each photo: the screen's, in physical pixels.</summary>
+    public int ScreenEdge { get; set; } = 3000;
+
+    /// <summary>The photo on screen is a screen-sized decode; zooming in asks for the full resolution.</summary>
+    public bool IsReduced => _loaded?.IsReduced == true;
+
+    /// <summary>Raised after the full-resolution decode replaced the screen-sized one.</summary>
+    public event Action? FullResolutionShown;
+
+    public async Task LoadFullResolutionAsync()
+    {
+        if (_loaded is not { IsReduced: true } || Current is not { } item) return;
+        var version = _loadVersion;
+        var full = await Loader.LoadAsync(item.Path, ImageLoader.FullEdge);
+        if (version != _loadVersion || full is null || !IsReduced) return;
+        _loaded = full;
+        Image = full.First;
+        FullResolutionShown?.Invoke();
+    }
+
     // ---- OCR
     public bool OcrAvailable => OcrEngines.IsAvailable;
 
@@ -139,7 +159,8 @@ public sealed partial class ViewerViewModel : ObservableObject
         OnPropertyChanged(nameof(Position));
         var version = ++_loadVersion;
         if (Current is not { } item) return;
-        var task = Loader.LoadAsync(item.Path);
+        Loader.Pin(item.Path);
+        var task = Loader.LoadAsync(item.Path, ScreenEdge);
         // Keep the previous image up for a decode that finishes within a frame or two; otherwise show loading
         if (!task.IsCompleted) IsLoading = true;
         var loaded = await task;
@@ -150,8 +171,8 @@ public sealed partial class ViewerViewModel : ObservableObject
         IsLoading = false;
         if (loaded is { IsAnimated: true }) StartAnimation();
         if (ShowOcr) _ = RecognizeAsync();
-        if (CanGoForward) Loader.Prefetch(_items[Index + 1].Path);
-        if (CanGoBack) Loader.Prefetch(_items[Index - 1].Path);
+        if (CanGoForward) Loader.Prefetch(_items[Index + 1].Path, ScreenEdge);
+        if (CanGoBack) Loader.Prefetch(_items[Index - 1].Path, ScreenEdge);
     }
 
     private void StartAnimation()

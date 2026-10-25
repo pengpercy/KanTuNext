@@ -58,7 +58,8 @@ public sealed class ZoomImage : Control
 
     public bool IsFit => _fit;
 
-    /// <summary>Set when switching photos, so a same-sized next photo still starts fitted and upright.</summary>
+    /// <summary>Set when switching photos, so the next photo starts fitted and upright (otherwise a source change
+    /// is taken as the same photo at another resolution, or the next frame of an animation).</summary>
     public bool ResetOnNextSource { get; set; }
     public double Zoom => _zoom;
 
@@ -82,13 +83,23 @@ public sealed class ZoomImage : Control
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == SourceProperty &&
-            ((change.OldValue as Bitmap)?.PixelSize != (change.NewValue as Bitmap)?.PixelSize || ResetOnNextSource))
+        if (change.Property == SourceProperty)
         {
-            ResetOnNextSource = false;
-            Reset();
+            var before = change.OldValue as Bitmap;
+            var after = change.NewValue as Bitmap;
+            if (ResetOnNextSource || before is null || after is null)
+            {
+                ResetOnNextSource = false;
+                Reset();
+            }
+            else if (before.PixelSize != after.PixelSize)
+            {
+                // The same photo at another resolution (screen-sized → full): keep what's on screen as it is
+                _zoom = _fit ? FitZoom : _zoom * before.PixelSize.Width / after.PixelSize.Width;
+                Changed();
+            }
+            else InvalidateVisual(); // next animation frame
         }
-        else if (change.Property == SourceProperty) InvalidateVisual();
         if (change.Property == BoundsProperty && _fit) { _zoom = FitZoom; InvalidateVisual(); }
     }
 

@@ -2,12 +2,12 @@ using KanTuNext.Core.Library;
 
 namespace KanTuNext.Core.Timeline;
 
+/// <summary>A titled run of thumbnails in the grid: a month, a set of duplicates, or a whole filtered list.</summary>
+public record MediaGroup(string Title, string CountText, IReadOnlyList<MediaFile> Items);
+
 /// <summary>One month in the timeline, newest items first.</summary>
 public sealed record MonthGroup(int Year, int Month, IReadOnlyList<MediaFile> Items)
-{
-    public string Title => TimelineText.MonthTitle(Year, Month);
-    public string CountText => TimelineText.ItemCount(Items.Count);
-}
+    : MediaGroup(TimelineText.MonthTitle(Year, Month), TimelineText.ItemCount(Items.Count), Items);
 
 public static class TimelineBuilder
 {

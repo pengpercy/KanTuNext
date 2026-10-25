@@ -22,8 +22,10 @@ public sealed partial class MainViewModel : ObservableObject
         [
             new SidebarSection("常用文件夹",
             [
+                // On macOS SpecialFolder.MyPictures asks AppKit and ignores HOME, which would make 图片 and 下载
+                // disagree about whose home it is; elsewhere it follows HOME (Linux: the localized XDG folder)
                 Item(LibraryCategory.Folder, "图片", "folder-outline", true,
-                    Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)),
+                    OperatingSystem.IsMacOS() ? Path.Combine(home, "Pictures") : Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)),
                 Item(LibraryCategory.Folder, "下载", "folder-outline", true, Path.Combine(home, "Downloads")),
                 .. _settings.Folders.Select(f => Item(LibraryCategory.Folder, FolderTitle(f), "folder-outline", true, f)),
             ], canAdd: true),
@@ -138,14 +140,97 @@ public sealed partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasItems), nameof(ShowEmpty))]
-    public partial IReadOnlyList<MonthGroup>? Groups { get; private set; }
+    public partial IReadOnlyList<MediaGroup>? Groups { get; private set; }
+
+    /// <summary>Sizes under thumbnails in 大图片 and 屏幕快照.</summary>
+    [ObservableProperty]
+    public partial bool ShowSizes { get; private set; }
+
+    // ---- 重复照片: an explicit scan, as in the original
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowEmpty))]
+    public partial bool ShowDuplicateIntro { get; private set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowEmpty))]
+    public partial string DuplicateProgress { get; private set; } = "";
+
+    /// <summary>Files of every common folder, by folder, from the latest scan of each (feeds the 筛选 views).</summary>
+    private readonly Dictionary<string, IReadOnlyList<MediaFile>> _folderFiles = new(StringComparer.Ordinal);
+    private Task? _allScanned;
+
+    private IReadOnlyList<MediaFile> AllFiles
+    {
+        get
+        {
+            lock (_folderFiles)
+                return _folderFiles.Values.SelectMany(f => f).DistinctBy(f => f.Path).ToArray();
+        }
+    }
+
+    private void Remember(string folder, IReadOnlyList<MediaFile> files)
+    {
+        lock (_folderFiles) _folderFiles[folder] = files;
+    }
+
+    private void UpdateFilterCounts()
+    {
+        var all = AllFiles;
+        foreach (var item in Sections.SelectMany(s => s.Items))
+        {
+            var count = item.Category switch
+            {
+                LibraryCategory.LargeImages => all.Count(LibraryFilters.IsLargeImage),
+                LibraryCategory.Screenshots => all.Count(LibraryFilters.IsScreenshot),
+                LibraryCategory.Videos => all.Count(f => f.Kind == MediaKind.Video),
+                _ => -1,
+            };
+            if (count >= 0) item.Count = count.ToString();
+        }
+    }
+
+    /// <summary>The filter views over all common folders.</summary>
+    private IReadOnlyList<MediaGroup>? FilterGroups(LibraryCategory category) => category switch
+    {
+        LibraryCategory.LargeImages => LibraryFilters.BySize(AllFiles.Where(LibraryFilters.IsLargeImage)),
+        LibraryCategory.Screenshots => LibraryFilters.BySize(AllFiles.Where(LibraryFilters.IsScreenshot)),
+        LibraryCategory.Videos => TimelineBuilder.ByMonth(AllFiles.Where(f => f.Kind == MediaKind.Video)),
+        _ => null,
+    };
+
+    private CancellationTokenSource? _duplicates;
+
+    public async Task ScanDuplicatesAsync()
+    {
+        _duplicates?.Cancel();
+        var cts = _duplicates = new CancellationTokenSource();
+        ShowDuplicateIntro = false;
+        DuplicateProgress = "正在扫描…";
+        try
+        {
+            if (_allScanned is { } scanning) await scanning;
+            var progress = new Progress<double>(p => DuplicateProgress = $"正在扫描… {p:P0}");
+            var groups = await Task.Run(() => LibraryFilters.Duplicates(AllFiles.Where(f => f.Kind == MediaKind.Image), progress, cts.Token), cts.Token);
+            if (cts.IsCancellationRequested || Selected?.Category != LibraryCategory.Duplicates) return;
+            Groups = groups;
+            Sections.SelectMany(s => s.Items).First(i => i.Category == LibraryCategory.Duplicates).Count =
+                groups.Sum(g => g.Items.Count - 1).ToString();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (_duplicates == cts) DuplicateProgress = "";
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowEmpty))]
     public partial bool IsLoading { get; private set; }
 
     public bool HasItems => Groups is { Count: > 0 };
-    public bool ShowEmpty => !IsLoading && !HasItems;
+    public bool ShowEmpty => !IsLoading && !HasItems && !ShowDuplicateIntro && DuplicateProgress.Length == 0;
 
     public double ItemEdge => ThumbnailSizes.Edge(Size);
     public double ItemGap => ThumbnailSizes.Gap(Size);
@@ -175,6 +260,28 @@ public sealed partial class MainViewModel : ObservableObject
         {
             Groups = null;
             Watch(item?.Category == LibraryCategory.Folder ? item.Path : null);
+            _duplicates?.Cancel();
+            ShowSizes = item?.Category is LibraryCategory.LargeImages or LibraryCategory.Screenshots;
+            ShowDuplicateIntro = item?.Category == LibraryCategory.Duplicates;
+            DuplicateProgress = "";
+        }
+        if (item is { Category: LibraryCategory.LargeImages or LibraryCategory.Screenshots or LibraryCategory.Videos })
+        {
+            IsLoading = !refresh;
+            try
+            {
+                if (_allScanned is { } scanning) await scanning;
+                var filtered = await Task.Run(() => FilterGroups(item.Category), cts.Token);
+                if (!cts.IsCancellationRequested) Groups = filtered;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                if (_load == cts) IsLoading = false;
+            }
+            return;
         }
         if (item is not null && TagOf(item.Category) is var tag and not PhotoTag.None)
         {
@@ -193,6 +300,8 @@ public sealed partial class MainViewModel : ObservableObject
                 return result;
             }, cts.Token);
             var groups = await Task.Run(() => TimelineBuilder.ByMonth(files), cts.Token);
+            Remember(folder, files);
+            UpdateFilterCounts();
             if (cts.IsCancellationRequested) return;
             Groups = groups;
             item.Count = files.Count > 0 ? files.Count.ToString() : "";
@@ -243,13 +352,17 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>Fills the folder counts in the sidebar without waiting for the user to open each one.</summary>
-    private async Task CountFoldersAsync()
+    private Task CountFoldersAsync() => _allScanned = CountFoldersCoreAsync();
+
+    private async Task CountFoldersCoreAsync()
     {
-        foreach (var item in Sections.SelectMany(s => s.Items).Where(i => i is { Category: LibraryCategory.Folder, Path: not null }))
+        foreach (var item in Sections.SelectMany(s => s.Items).Where(i => i is { Category: LibraryCategory.Folder, Path: not null }).ToArray())
         {
-            var count = await Task.Run(() => FolderScanner.Scan(item.Path!, cache: _metadata.Value).Count);
-            Dispatcher.UIThread.Post(() => item.Count = count > 0 ? count.ToString() : "");
+            var files = await Task.Run(() => FolderScanner.Scan(item.Path!, cache: _metadata.Value));
+            Remember(item.Path!, files);
+            item.Count = files.Count > 0 ? files.Count.ToString() : "";
         }
+        UpdateFilterCounts();
         await Task.Run(SaveMetadata);
     }
 

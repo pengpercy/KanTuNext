@@ -12,6 +12,7 @@ namespace KanTuNext.Desktop.Views;
 public partial class ViewerWindow : Window
 {
     private readonly DispatcherTimer _hideToolbar;
+    private bool _actualSizeWhenFull;
 
     public ViewerWindow()
     {
@@ -23,11 +24,22 @@ public partial class ViewerWindow : Window
             if (!ToolbarDock.IsPointerOver) ToolbarDock.Opacity = 0;
         });
         PointerMoved += (_, _) => ShowToolbar();
+        // Leaving fit mode (zoom, 1:1, pinch) is when the screen-sized decode stops being enough
+        Viewer.ViewChanged += () =>
+        {
+            if (!Viewer.IsFit && Model is { IsReduced: true } vm) _ = vm.LoadFullResolutionAsync();
+        };
         Opened += (_, _) => { ShowToolbar(); Viewer.Focus(); };
         Closed += (_, _) => Model?.Close();
         DataContextChanged += (_, _) =>
         {
             if (Model is not { } vm) return;
+            vm.FullResolutionShown += () =>
+            {
+                if (!_actualSizeWhenFull) return;
+                _actualSizeWhenFull = false;
+                Viewer.ActualSize();
+            };
             vm.PropertyChanged += (_, e) =>
             {
                 if (e.PropertyName == nameof(ViewerViewModel.Index)) Viewer.ResetOnNextSource = true;
@@ -54,6 +66,8 @@ public partial class ViewerWindow : Window
         var window = new ViewerWindow { DataContext = model };
         if (owner.Screens.ScreenFromWindow(owner) is { } screen)
         {
+            // First decodes match the screen in physical pixels: enough for fit-to-window on this display
+            model.ScreenEdge = Math.Clamp(Math.Max(screen.Bounds.Width, screen.Bounds.Height), 1600, 6000);
             var area = screen.WorkingArea.Size.ToSize(screen.Scaling);
             window.Width = Math.Round(area.Width * 0.8);
             window.Height = Math.Round(area.Height * 0.85);
@@ -82,7 +96,7 @@ public partial class ViewerWindow : Window
             case Key.OemPlus or Key.Add: Viewer.ZoomBy(1.25); break;
             case Key.OemMinus or Key.Subtract: Viewer.ZoomBy(0.8); break;
             case Key.D0 or Key.NumPad0: Viewer.FitToView(); break;
-            case Key.D1 or Key.NumPad1: Viewer.ActualSize(); break;
+            case Key.D1 or Key.NumPad1: ActualSize(); break;
             case Key.R: Viewer.Rotate(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 1 : -1); break;
             case Key.Escape: Close(); break;
             case Key.Delete or Key.Back: _ = DeleteAsync(); break;
@@ -99,7 +113,14 @@ public partial class ViewerWindow : Window
     private void OnNext(object? sender, RoutedEventArgs e) => _ = Model?.GoForwardAsync();
     private void OnZoomIn(object? sender, RoutedEventArgs e) => Viewer.ZoomBy(1.25);
     private void OnZoomOut(object? sender, RoutedEventArgs e) => Viewer.ZoomBy(0.8);
-    private void OnActualSize(object? sender, RoutedEventArgs e) => Viewer.ActualSize();
+    private void OnActualSize(object? sender, RoutedEventArgs e) => ActualSize();
+
+    /// <summary>1:1 means file pixels: on a screen-sized decode, redo it once the full resolution is in.</summary>
+    private void ActualSize()
+    {
+        _actualSizeWhenFull = Model?.IsReduced == true;
+        Viewer.ActualSize();
+    }
     private void OnFit(object? sender, RoutedEventArgs e) => Viewer.FitToView();
     private void OnRotate(object? sender, RoutedEventArgs e) => Viewer.Rotate(-1);
     private void OnClose(object? sender, RoutedEventArgs e) => Close();

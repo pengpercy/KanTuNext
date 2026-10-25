@@ -17,7 +17,7 @@ public sealed class ThumbnailService
 {
     public static ThumbnailService Shared { get; } = new();
 
-    private const long MemoryBudget = 160L * 1024 * 1024;
+    private const long MemoryBudget = 128L * 1024 * 1024;
 
     private readonly object _gate = new();
     private readonly Dictionary<string, LinkedListNode<(string Key, Bitmap Bitmap, long Bytes)>> _cache = new();
@@ -142,7 +142,10 @@ public sealed class ThumbnailService
             _lru.RemoveLast();
             _cache.Remove(last.Value.Key);
             _cachedBytes -= last.Value.Bytes;
-            // Not disposed: the grid may still be drawing it this frame; the GC releases it
+            // Freed on the UI thread, between renders: recorded draw calls hold their own reference, and the
+            // native pixels are released now instead of whenever the GC notices
+            var evicted = last.Value.Bitmap;
+            Dispatcher.UIThread.Post(evicted.Dispose, DispatcherPriority.Background);
         }
     }
 
@@ -162,12 +165,11 @@ public sealed class ThumbnailService
         var full = codec.Info;
         var shortSide = Math.Min(full.Width, full.Height);
         if (shortSide <= 0) return null;
-        var scale = Math.Min(1f, (float)request.Edge / shortSide);
-        var dims = scale < 1f ? codec.GetScaledDimensions(scale) : full.Size;
-        var decodeInfo = new SKImageInfo(dims.Width, dims.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
-        using var decoded = new SKBitmap(decodeInfo);
-        var result = codec.GetPixels(decodeInfo, decoded.GetPixels());
-        if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput)) return null;
+        // The square crop needs the short side at the bucket edge, so ask for the long side proportionally
+        var longSide = Math.Max(full.Width, full.Height);
+        using var decoded = ScaledDecoder.Decode(codec, (int)Math.Ceiling((double)request.Edge * longSide / shortSide));
+        if (decoded is null) return null;
+        var dims = new SKSizeI(decoded.Width, decoded.Height);
 
         // Center square crop, scaled to the bucket edge (never upscaled), then the EXIF orientation:
         // a centered square crop commutes with rotations and flips, so the order doesn't matter.

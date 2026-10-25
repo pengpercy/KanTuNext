@@ -100,9 +100,24 @@
       </Grid>
 
       <ScrollViewer Grid.Row="1" IsVisible="{Binding HasItems}" HorizontalScrollBarVisibility="Disabled">
-        <views:ThumbnailGrid x:Name="Grid" Groups="{Binding Groups}" ItemEdge="{Binding ItemEdge}" ItemGap="{Binding ItemGap}" />
+        <views:ThumbnailGrid x:Name="Grid" Groups="{Binding Groups}" ItemEdge="{Binding ItemEdge}" ItemGap="{Binding ItemGap}"
+                             ShowSizes="{Binding ShowSizes}" />
       </ScrollViewer>
 
+      <!-- 重复照片 starts with the original's explanation and an explicit scan -->
+      <StackPanel Grid.Row="1" IsVisible="{Binding ShowDuplicateIntro}" HorizontalAlignment="Center"
+                  VerticalAlignment="Center" Spacing="10" Margin="0,0,0,60">
+        <TextBlock Text="智能识别重复照片" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center"
+                   Foreground="{DynamicResource TextBrush}" />
+        <TextBlock Text="一键识别电脑上完全重复的照片，方便批量管理" FontSize="12" HorizontalAlignment="Center"
+                   Foreground="{DynamicResource SubTextBrush}" />
+        <Button Content="开始扫描" Classes="accent" HorizontalAlignment="Center" Margin="0,18,0,0" Padding="28,7"
+                Click="OnScanDuplicates" />
+      </StackPanel>
+
+      <TextBlock Grid.Row="1" IsVisible="{Binding DuplicateProgress, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                 Text="{Binding DuplicateProgress}" FontSize="13" Margin="0,40,0,0"
+                 HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource SubTextBrush}" />
       <TextBlock Grid.Row="1" IsVisible="{Binding IsLoading}" Text="正在读取…" FontSize="13"
                  HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource SubTextBrush}" />
 

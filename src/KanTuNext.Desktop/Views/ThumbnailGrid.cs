@@ -18,12 +18,17 @@ namespace KanTuNext.Desktop.Views;
 /// </summary>
 public sealed class ThumbnailGrid : Control
 {
-    public static readonly StyledProperty<IReadOnlyList<MonthGroup>?> GroupsProperty =
-        AvaloniaProperty.Register<ThumbnailGrid, IReadOnlyList<MonthGroup>?>(nameof(Groups));
+    public static readonly StyledProperty<IReadOnlyList<MediaGroup>?> GroupsProperty =
+        AvaloniaProperty.Register<ThumbnailGrid, IReadOnlyList<MediaGroup>?>(nameof(Groups));
     public static readonly StyledProperty<double> ItemEdgeProperty =
         AvaloniaProperty.Register<ThumbnailGrid, double>(nameof(ItemEdge), 70);
     public static readonly StyledProperty<double> ItemGapProperty =
         AvaloniaProperty.Register<ThumbnailGrid, double>(nameof(ItemGap), 20);
+    /// <summary>File size under each thumbnail (大图片, 屏幕快照), as the original shows it.</summary>
+    public static readonly StyledProperty<bool> ShowSizesProperty =
+        AvaloniaProperty.Register<ThumbnailGrid, bool>(nameof(ShowSizes));
+
+    private const double CaptionHeight = 18;
 
     private const double SidePadding = 28, TopPadding = 0, FirstHeader = 52, Header = 44, SectionGap = 14, BottomPadding = 24;
 
@@ -35,8 +40,8 @@ public sealed class ThumbnailGrid : Control
 
     static ThumbnailGrid()
     {
-        AffectsMeasure<ThumbnailGrid>(GroupsProperty, ItemEdgeProperty, ItemGapProperty);
-        AffectsRender<ThumbnailGrid>(GroupsProperty, ItemEdgeProperty, ItemGapProperty);
+        AffectsMeasure<ThumbnailGrid>(GroupsProperty, ItemEdgeProperty, ItemGapProperty, ShowSizesProperty);
+        AffectsRender<ThumbnailGrid>(GroupsProperty, ItemEdgeProperty, ItemGapProperty, ShowSizesProperty);
         FocusableProperty.OverrideDefaultValue<ThumbnailGrid>(true);
     }
 
@@ -46,14 +51,18 @@ public sealed class ThumbnailGrid : Control
         ActualThemeVariantChanged += (_, _) => { _texts.Clear(); InvalidateVisual(); };
     }
 
-    public IReadOnlyList<MonthGroup>? Groups { get => GetValue(GroupsProperty); set => SetValue(GroupsProperty, value); }
+    public IReadOnlyList<MediaGroup>? Groups { get => GetValue(GroupsProperty); set => SetValue(GroupsProperty, value); }
     public double ItemEdge { get => GetValue(ItemEdgeProperty); set => SetValue(ItemEdgeProperty, value); }
     public double ItemGap { get => GetValue(ItemGapProperty); set => SetValue(ItemGapProperty, value); }
+    public bool ShowSizes { get => GetValue(ShowSizesProperty); set => SetValue(ShowSizesProperty, value); }
+
+    /// <summary>Vertical distance between rows: the thumbnail, its caption (if any) and the gap.</summary>
+    private double RowPitch => ItemEdge + ItemGap + (ShowSizes ? CaptionHeight : 0);
 
     /// <summary>Raised on double-click or Enter with the chosen file (opens the viewer).</summary>
     public event Action<MediaFile>? Opened;
 
-    private readonly record struct Section(MonthGroup Group, double Top, double ItemsTop, int Rows, double Bottom);
+    private readonly record struct Section(MediaGroup Group, double Top, double ItemsTop, int Rows, double Bottom);
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -87,6 +96,7 @@ public sealed class ThumbnailGrid : Control
     {
         var width = double.IsInfinity(availableSize.Width) ? 800 : availableSize.Width;
         var pitch = ItemEdge + ItemGap;
+        var rowPitch = RowPitch;
         _columns = Math.Max(1, (int)((width - 2 * SidePadding + ItemGap) / pitch));
         _sections.Clear();
         var y = TopPadding;
@@ -97,7 +107,7 @@ public sealed class ThumbnailGrid : Control
                 var group = groups[i];
                 var itemsTop = y + (i == 0 ? FirstHeader : Header);
                 var rows = (group.Items.Count + _columns - 1) / _columns;
-                var bottom = itemsTop + rows * pitch - ItemGap;
+                var bottom = itemsTop + rows * rowPitch - ItemGap;
                 _sections.Add(new Section(group, y, itemsTop, rows, bottom));
                 y = bottom + SectionGap;
             }
@@ -108,7 +118,7 @@ public sealed class ThumbnailGrid : Control
     private Rect ItemRect(Section section, int index)
     {
         var pitch = ItemEdge + ItemGap;
-        return new Rect(SidePadding + index % _columns * pitch, section.ItemsTop + index / _columns * pitch, ItemEdge, ItemEdge);
+        return new Rect(SidePadding + index % _columns * pitch, section.ItemsTop + index / _columns * RowPitch, ItemEdge, ItemEdge);
     }
 
     public override void Render(DrawingContext context)
@@ -128,7 +138,7 @@ public sealed class ThumbnailGrid : Control
         var faint = Brush("FaintBrush", Brushes.Gray);
         var accent = Brush("AccentBrush", Brushes.DodgerBlue);
         var selectionPen = new Pen(accent, 2);
-        var pitch = ItemEdge + ItemGap;
+        var pitch = RowPitch;
 
         for (var s = 0; s < _sections.Count; s++)
         {
@@ -167,6 +177,11 @@ public sealed class ThumbnailGrid : Control
                 }
                 if (_selected == (s, i))
                     context.DrawRectangle(null, selectionPen, rect.Inflate(1));
+                if (ShowSizes)
+                {
+                    var caption = Text(TimelineText.FileSize(item.Length), 11, text);
+                    context.DrawText(caption, new Point(rect.Center.X - caption.Width / 2, rect.Bottom + 3));
+                }
             }
         }
         service.Retain(visibleKeys);
@@ -205,12 +220,13 @@ public sealed class ThumbnailGrid : Control
     private (int Section, int Item)? HitTest(Point point)
     {
         var pitch = ItemEdge + ItemGap;
+        var rowPitch = RowPitch;
         for (var s = 0; s < _sections.Count; s++)
         {
             var section = _sections[s];
             if (point.Y < section.ItemsTop || point.Y > section.Bottom) continue;
             var col = (int)((point.X - SidePadding) / pitch);
-            var row = (int)((point.Y - section.ItemsTop) / pitch);
+            var row = (int)((point.Y - section.ItemsTop) / rowPitch);
             if (col < 0 || col >= _columns) return null;
             var index = row * _columns + col;
             if (index >= section.Group.Items.Count || !ItemRect(section, index).Contains(point)) return null;

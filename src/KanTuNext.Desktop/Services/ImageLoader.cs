@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using SkiaSharp;
 
 namespace KanTuNext.Desktop.Services;
@@ -9,46 +10,93 @@ namespace KanTuNext.Desktop.Services;
 public sealed record LoadedImage(Bitmap First, IReadOnlyList<Bitmap>? Frames = null, IReadOnlyList<TimeSpan>? Durations = null)
 {
     public bool IsAnimated => Frames is { Count: > 1 };
+
+    /// <summary>Decoded smaller than the file (screen-sized); a full-resolution decode is available on zoom.</summary>
+    public bool IsReduced { get; init; }
+
+    public long Bytes => (Frames ?? [First]).Sum(b => (long)b.PixelSize.Width * b.PixelSize.Height * 4);
+
+    public void Dispose()
+    {
+        foreach (var bitmap in Frames ?? [First]) bitmap.Dispose();
+    }
 }
 
 /// <summary>
-/// Full-size decodes for the viewer, upright per EXIF orientation. Keeps the last few results so stepping
-/// back and forth is instant, and lets the viewer prefetch the neighbours of the current photo.
+/// Decodes for the viewer, upright per EXIF orientation. Photos are first decoded at screen size (a 24 MP photo
+/// becomes ~10–30 MB instead of ~96 MB); the full resolution is decoded only when the user zooms in past it.
+/// Results are cached within a memory budget (1/16 of RAM, 128–512 MB), least recently used out first, and the
+/// photo on screen is never evicted.
 /// </summary>
 public sealed class ImageLoader
 {
-    /// <summary>Longest edge decoded; larger images are decoded scaled down (SKCodec does this cheaply for JPEG).</summary>
-    private const int MaxEdge = 12000;
-    private const int Capacity = 5;
+    /// <summary>Longest edge ever decoded; larger images are decoded scaled down (SKCodec does this cheaply for JPEG).</summary>
+    public const int FullEdge = 12000;
     /// <summary>Animations beyond these limits show their first frame only.</summary>
     private const int MaxFrames = 600;
     private const long MaxAnimationBytes = 384L * 1024 * 1024;
 
-    private readonly object _gate = new();
-    private readonly LinkedList<(string Key, Task<LoadedImage?> Task)> _recent = new();
+    private static readonly long Budget = Math.Clamp(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 16,
+        128L * 1024 * 1024, 512L * 1024 * 1024);
 
-    public Task<LoadedImage?> LoadAsync(string path)
+    private sealed record Entry(string Path, int MaxEdge, Task<LoadedImage?> Task);
+
+    private readonly object _gate = new();
+    private readonly LinkedList<Entry> _recent = new();
+    private string? _pinned;
+
+    /// <summary>The photo on screen: its decodes are kept whatever the budget says.</summary>
+    public void Pin(string? path)
+    {
+        lock (_gate) _pinned = path;
+    }
+
+    public Task<LoadedImage?> LoadAsync(string path, int maxEdge)
     {
         lock (_gate)
         {
             for (var node = _recent.First; node is not null; node = node.Next)
             {
-                if (node.Value.Key != path) continue;
+                if (node.Value.Path != path || node.Value.MaxEdge != maxEdge) continue;
                 _recent.Remove(node);
                 _recent.AddFirst(node);
                 return node.Value.Task;
             }
-            var task = Task.Run(() => Decode(path));
-            _recent.AddFirst((path, task));
-            while (_recent.Count > Capacity) _recent.RemoveLast();
+            var task = Task.Run(() => Decode(path, maxEdge));
+            _recent.AddFirst(new Entry(path, maxEdge, task));
+            _ = task.ContinueWith(_ => Trim(), TaskScheduler.Default);
             return task;
         }
     }
 
     /// <summary>Starts decoding without waiting, so the next/previous photo is ready when asked for.</summary>
-    public void Prefetch(string path) => _ = LoadAsync(path);
+    public void Prefetch(string path, int maxEdge) => _ = LoadAsync(path, maxEdge);
 
-    private static LoadedImage? Decode(string path)
+    /// <summary>Evicts least-recently-used finished decodes until the cache fits the budget.</summary>
+    private void Trim()
+    {
+        var evicted = new List<LoadedImage>();
+        lock (_gate)
+        {
+            long total = _recent.Sum(e => e.Task.IsCompletedSuccessfully ? e.Task.Result?.Bytes ?? 0 : 0);
+            for (var node = _recent.Last; node is not null && total > Budget;)
+            {
+                var previous = node.Previous;
+                var entry = node.Value;
+                if (entry.Path != _pinned && entry.Task.IsCompletedSuccessfully && entry.Task.Result is { } image)
+                {
+                    _recent.Remove(node);
+                    total -= image.Bytes;
+                    evicted.Add(image);
+                }
+                node = previous;
+            }
+        }
+        // Released on the UI thread: draw calls already recorded keep their own reference to the pixels
+        if (evicted.Count > 0) Dispatcher.UIThread.Post(() => evicted.ForEach(i => i.Dispose()), DispatcherPriority.Background);
+    }
+
+    private static LoadedImage? Decode(string path, int maxEdge)
     {
         try
         {
@@ -58,8 +106,8 @@ public sealed class ImageLoader
                 if (codec is null) return null;
                 if (codec.FrameCount > 1 && DecodeAnimation(codec) is { } animation) return animation;
             }
-            using var upright = DecodeUpright(path, MaxEdge);
-            return upright is null ? null : new LoadedImage(ToBitmap(upright));
+            using var upright = DecodeUpright(path, maxEdge, out var reduced);
+            return upright is null ? null : new LoadedImage(ToBitmap(upright)) { IsReduced = reduced };
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or OutOfMemoryException)
         {
@@ -71,22 +119,32 @@ public sealed class ImageLoader
     /// Decodes a still image (first frame), scaled so its longest edge is at most <paramref name="maxEdge"/>, and
     /// turned upright per its EXIF orientation. Shared by the viewer and OCR engines that need raw pixels.
     /// </summary>
-    internal static SKBitmap? DecodeUpright(string path, int maxEdge, SKColorType colorType = SKColorType.Bgra8888)
+    internal static SKBitmap? DecodeUpright(string path, int maxEdge, SKColorType colorType = SKColorType.Bgra8888) =>
+        DecodeUpright(path, maxEdge, out _, colorType);
+
+    internal static SKBitmap? DecodeUpright(string path, int maxEdge, out bool reduced, SKColorType colorType = SKColorType.Bgra8888)
     {
+        reduced = false;
         using var stream = File.OpenRead(path);
         using var codec = SKCodec.Create(stream);
         if (codec is null) return null;
 
         var full = codec.Info;
-        var longest = Math.Max(full.Width, full.Height);
-        var dims = longest > maxEdge ? codec.GetScaledDimensions((float)maxEdge / longest) : full.Size;
-        var info = new SKImageInfo(dims.Width, dims.Height, colorType, SKAlphaType.Premul);
-        var decoded = new SKBitmap(info);
-        var result = codec.GetPixels(info, decoded.GetPixels());
-        if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput))
+        reduced = Math.Max(full.Width, full.Height) > maxEdge;
+        var decoded = ScaledDecoder.Decode(codec, maxEdge, colorType);
+        if (decoded is null) return null;
+        // Sampling lands at or above the target; bring it down to exactly fit (high-quality filtering)
+        var longest = Math.Max(decoded.Width, decoded.Height);
+        if (longest > maxEdge)
         {
-            decoded.Dispose();
-            return null;
+            var scale = (double)maxEdge / longest;
+            var resized = decoded.Resize(new SKImageInfo(Math.Max(1, (int)(decoded.Width * scale)), Math.Max(1, (int)(decoded.Height * scale)),
+                colorType, SKAlphaType.Premul), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
+            if (resized is not null)
+            {
+                decoded.Dispose();
+                decoded = resized;
+            }
         }
         if (Orient(decoded, codec.EncodedOrigin) is not { } upright) return decoded;
         decoded.Dispose();
