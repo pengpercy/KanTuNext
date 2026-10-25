@@ -175,8 +175,7 @@ public sealed class ThumbnailService
             }
             // No Skia codec (HEIC, AVIF, JPEG XL, TIFF, RAW…): the platform's decoder, already upright.
             // 3× the edge covers panoramas up to 3:1 for the square crop.
-            else if (OperatingSystem.IsMacOS()) decoded = MacImageDecoder.Decode(request.Path, request.Edge * 3);
-            else decoded = null;
+            else decoded = PlatformDecoder.Decode(request.Path, request.Edge * 3);
         }
         if (decoded is null) return null;
         using var _ = decoded;

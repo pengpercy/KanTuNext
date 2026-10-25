@@ -29,6 +29,7 @@ public static class FolderScanner
             files.Add(new MediaFile(info.FullName, kind, info.Length, info.LastWriteTime));
         }
 
+        files = PairLivePhotos(files);
         var result = new MediaFile[files.Count];
         Parallel.For(0, files.Count, new ParallelOptions { CancellationToken = cancel }, i =>
         {
@@ -44,6 +45,34 @@ public static class FolderScanner
             }
             result[i] = file;
         });
+        return result;
+    }
+
+    /// <summary>
+    /// Live Photos arrive as a still (HEIC/JPG) and a .mov with the same name in the same folder (AirDrop, Image
+    /// Capture, iCloud exports). The pair shows as one item: the still, marked live, carrying its clip.
+    /// </summary>
+    internal static List<MediaFile> PairLivePhotos(List<MediaFile> files)
+    {
+        static string Stem(MediaFile f) => Path.Combine(Path.GetDirectoryName(f.Path) ?? "", Path.GetFileNameWithoutExtension(f.Path));
+        var clips = files.Where(f => f.Kind == MediaKind.Video && Path.GetExtension(f.Path).Equals(".mov", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(Stem, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        if (clips.Count == 0) return files;
+
+        var paired = new HashSet<string>(StringComparer.Ordinal);
+        var result = new List<MediaFile>(files.Count);
+        foreach (var file in files)
+        {
+            if (file.Kind == MediaKind.Image && Path.GetExtension(file.Path).ToLowerInvariant() is ".heic" or ".heif" or ".jpg" or ".jpeg"
+                && clips.TryGetValue(Stem(file), out var clip))
+            {
+                result.Add(file with { LiveVideo = clip.Path });
+                paired.Add(clip.Path);
+            }
+            else result.Add(file);
+        }
+        result.RemoveAll(f => paired.Contains(f.Path));
         return result;
     }
 

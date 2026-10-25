@@ -81,3 +81,26 @@ public sealed class MetadataCacheTests : IDisposable
         Assert.False(KanTuNext.Core.Metadata.MetadataCache.Load(cachePath).TryGet("x", DateTime.Now, 1, out _));
     }
 }
+
+public sealed class LivePhotoTests : IDisposable
+{
+    private readonly string _root = Directory.CreateTempSubdirectory("kantunext-live-").FullName;
+
+    public void Dispose() => Directory.Delete(_root, true);
+
+    [Fact]
+    public void PairsStillAndClipWithTheSameName()
+    {
+        foreach (var name in new[] { "IMG_0001.HEIC", "IMG_0001.MOV", "IMG_0002.JPG", "clip.mov", "IMG_0003.heic" })
+            File.WriteAllBytes(Path.Combine(_root, name), [0]);
+
+        var files = KanTuNext.Core.Library.FolderScanner.Scan(_root, TestContext.Current.CancellationToken);
+
+        // The paired .MOV disappears into its still; unpaired clips and stills stay as they are
+        Assert.Equal(["IMG_0001.HEIC", "IMG_0002.JPG", "IMG_0003.heic", "clip.mov"], files.Select(f => f.Name).Order(StringComparer.Ordinal));
+        var live = files.Single(f => f.Name == "IMG_0001.HEIC");
+        Assert.True(live.IsLivePhoto);
+        Assert.Equal(Path.Combine(_root, "IMG_0001.MOV"), live.LiveVideo);
+        Assert.False(files.Single(f => f.Name == "IMG_0003.heic").IsLivePhoto);
+    }
+}

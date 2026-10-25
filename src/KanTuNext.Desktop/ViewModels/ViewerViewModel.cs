@@ -27,7 +27,7 @@ public sealed partial class ViewerViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Current), nameof(Title), nameof(CanGoBack), nameof(CanGoForward), nameof(Position), nameof(Tag))]
+    [NotifyPropertyChangedFor(nameof(Current), nameof(Title), nameof(CanGoBack), nameof(CanGoForward), nameof(Position), nameof(Tag), nameof(IsLivePhoto))]
     public partial int Index { get; private set; }
 
     [ObservableProperty]
@@ -121,6 +121,14 @@ public sealed partial class ViewerViewModel : ObservableObject
         }
     }
 
+    public bool IsLivePhoto => Current?.IsLivePhoto == true;
+
+    /// <summary>Plays the Live Photo's motion clip (in the system player until in-window playback lands).</summary>
+    public void PlayLive()
+    {
+        if (Current?.LiveVideo is { } clip) Opener.Open(clip);
+    }
+
     public PhotoTag Tag => Current is { } c ? AppServices.Tags.Get(c.Path) : PhotoTag.None;
 
     public void ToggleTag(PhotoTag tag)
@@ -156,6 +164,7 @@ public sealed partial class ViewerViewModel : ObservableObject
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(Tag));
         OnPropertyChanged(nameof(Position));
+        OnPropertyChanged(nameof(IsLivePhoto));
         var version = ++_loadVersion;
         if (Current is not { } item) return;
         Loader.Pin(item.Path);

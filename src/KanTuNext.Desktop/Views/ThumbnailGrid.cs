@@ -178,6 +178,7 @@ public sealed class ThumbnailGrid : Control
                     else
                         context.FillRectangle(placeholder, rect);
                 }
+                if (item.IsLivePhoto) DrawLiveBadge(context, rect);
                 if (_selected == (s, i))
                     context.DrawRectangle(null, selectionPen, rect.Inflate(1));
                 if (ShowSizes)
@@ -188,6 +189,20 @@ public sealed class ThumbnailGrid : Control
             }
         }
         service.Retain(visibleKeys);
+    }
+
+    private static readonly IBrush LiveBadgeBrush = new SolidColorBrush(Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF));
+    private static readonly IBrush LiveBadgeShadow = new SolidColorBrush(Color.FromArgb(0x59, 0, 0, 0));
+
+    /// <summary>The Live Photo mark in the top-left corner: a dot, a ring and a dashed outer ring.</summary>
+    private static void DrawLiveBadge(DrawingContext context, Rect rect)
+    {
+        var r = Math.Clamp(rect.Width / 12, 5, 9);
+        var c = new Point(rect.X + r + 5, rect.Y + r + 5);
+        context.DrawEllipse(LiveBadgeShadow, null, c, r + 1.5, r + 1.5);
+        context.DrawEllipse(LiveBadgeBrush, null, c, r * 0.28, r * 0.28);
+        context.DrawEllipse(null, new Pen(LiveBadgeBrush, 1.2), c, r * 0.58, r * 0.58);
+        context.DrawEllipse(null, new Pen(LiveBadgeBrush, 1.2) { DashStyle = new DashStyle([1.2, 1.4], 0) }, c, r, r);
     }
 
     private static void DrawPlayBadge(DrawingContext context, Rect rect, IBrush brush)

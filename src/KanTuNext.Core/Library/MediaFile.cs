@@ -8,6 +8,10 @@ public sealed record MediaFile(string Path, MediaKind Kind, long Length, DateTim
     public DateTime? Taken { get; init; }
     public int Orientation { get; init; } = 1;
 
+    /// <summary>For a Live Photo still: the paired motion clip (same folder, same name, .mov).</summary>
+    public string? LiveVideo { get; init; }
+    public bool IsLivePhoto => LiveVideo is not null;
+
     /// <summary>The date the timeline files this under: capture time, else last modified.</summary>
     public DateTime SortDate => Taken ?? Modified;
     public string Name => System.IO.Path.GetFileName(Path);

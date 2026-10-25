@@ -131,7 +131,7 @@ public sealed class ImageLoader
         {
             // No Skia codec (HEIC, AVIF, JPEG XL, TIFF, RAW…): the platform's decoder, already upright. Its size
             // is unknown up front, so a result that fills the limit is taken as reduced (full decode on zoom).
-            if (!OperatingSystem.IsMacOS() || MacImageDecoder.Decode(path, maxEdge) is not { } platform) return null;
+            if (PlatformDecoder.Decode(path, maxEdge) is not { } platform) return null;
             if (platform.ColorType != colorType)
             {
                 var converted = platform.Copy(colorType);

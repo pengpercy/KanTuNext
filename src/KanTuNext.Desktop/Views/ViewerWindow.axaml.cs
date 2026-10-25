@@ -126,6 +126,7 @@ public partial class ViewerWindow : Window
     private void OnClose(object? sender, RoutedEventArgs e) => Close();
     private void OnDelete(object? sender, RoutedEventArgs e) => _ = DeleteAsync();
     private void OnOcr(object? sender, RoutedEventArgs e) => Model?.ToggleOcr();
+    private void OnPlayLive(object? sender, RoutedEventArgs e) => Model?.PlayLive();
     private void OnCopyText(object? sender, RoutedEventArgs e) => _ = CopyTextAsync();
 
     private async Task CopyTextAsync()
