@@ -164,7 +164,7 @@ public sealed class ImageLoader
         return upright;
     }
 
-    private static Bitmap ToBitmap(SKBitmap source) =>
+    internal static Bitmap ToBitmap(SKBitmap source) =>
         new(PixelFormat.Bgra8888, AlphaFormat.Premul, source.GetPixels(),
             new PixelSize(source.Width, source.Height), new Vector(96, 96), source.RowBytes);
 

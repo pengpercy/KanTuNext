@@ -53,8 +53,7 @@ internal static class MacImageDecoder
         var bytes = System.Text.Encoding.UTF8.GetBytes(path);
         var url = CFURLCreateFromFileSystemRepresentation(IntPtr.Zero, bytes, bytes.Length, false);
         if (url == IntPtr.Zero) return null;
-        IntPtr source = IntPtr.Zero, options = IntPtr.Zero, number = IntPtr.Zero, image = IntPtr.Zero,
-            space = IntPtr.Zero, context = IntPtr.Zero;
+        IntPtr source = IntPtr.Zero, options = IntPtr.Zero, number = IntPtr.Zero, image = IntPtr.Zero;
         try
         {
             source = CGImageSourceCreateWithURL(url, IntPtr.Zero);
@@ -68,14 +67,29 @@ internal static class MacImageDecoder
             image = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
             if (image == IntPtr.Zero) return null;
 
-            var w = (int)CGImageGetWidth(image);
-            var h = (int)CGImageGetHeight(image);
-            if (w <= 0 || h <= 0) return null;
-            var bitmap = new SKBitmap(new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul));
-            space = CGColorSpaceCreateWithName(s.Srgb);
-            // BGRA premultiplied = alpha first, 32-bit little endian
-            const uint bitmapInfo = 2 /* kCGImageAlphaPremultipliedFirst */ | (2 << 12) /* kCGBitmapByteOrder32Little */;
-            context = CGBitmapContextCreate(bitmap.GetPixels(), (nuint)w, (nuint)h, 8, (nuint)bitmap.RowBytes, space, bitmapInfo);
+            return FromCGImage(image);
+        }
+        finally
+        {
+            foreach (var r in new[] { image, options, number, source, url })
+                if (r != IntPtr.Zero) CFRelease(r);
+        }
+    }
+
+    /// <summary>Draws a CGImage into a new BGRA premultiplied bitmap (sRGB). Doesn't release the image.</summary>
+    internal static SKBitmap? FromCGImage(IntPtr image)
+    {
+        if (Loaded.Value is not { } s || image == IntPtr.Zero) return null;
+        var w = (int)CGImageGetWidth(image);
+        var h = (int)CGImageGetHeight(image);
+        if (w <= 0 || h <= 0) return null;
+        var bitmap = new SKBitmap(new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul));
+        var space = CGColorSpaceCreateWithName(s.Srgb);
+        // BGRA premultiplied = alpha first, 32-bit little endian
+        const uint bitmapInfo = 2 /* kCGImageAlphaPremultipliedFirst */ | (2 << 12) /* kCGBitmapByteOrder32Little */;
+        var context = CGBitmapContextCreate(bitmap.GetPixels(), (nuint)w, (nuint)h, 8, (nuint)bitmap.RowBytes, space, bitmapInfo);
+        try
+        {
             if (context == IntPtr.Zero)
             {
                 bitmap.Dispose();
@@ -86,8 +100,8 @@ internal static class MacImageDecoder
         }
         finally
         {
-            foreach (var r in new[] { context, space, image, options, number, source, url })
-                if (r != IntPtr.Zero) CFRelease(r);
+            if (context != IntPtr.Zero) CFRelease(context);
+            if (space != IntPtr.Zero) CFRelease(space);
         }
     }
 
@@ -97,7 +111,7 @@ internal static class MacImageDecoder
     [DllImport(CoreFoundation)] private static extern IntPtr CFURLCreateFromFileSystemRepresentation(IntPtr allocator, byte[] buffer, nint length, [MarshalAs(UnmanagedType.U1)] bool isDirectory);
     [DllImport(CoreFoundation)] private static extern IntPtr CFNumberCreate(IntPtr allocator, nint type, ref int value);
     [DllImport(CoreFoundation)] private static extern IntPtr CFDictionaryCreate(IntPtr allocator, IntPtr[] keys, IntPtr[] values, nint count, IntPtr keyCallbacks, IntPtr valueCallbacks);
-    [DllImport(CoreFoundation)] private static extern void CFRelease(IntPtr obj);
+    [DllImport(CoreFoundation)] internal static extern void CFRelease(IntPtr obj);
     [DllImport(ImageIO)] private static extern IntPtr CGImageSourceCreateWithURL(IntPtr url, IntPtr options);
     [DllImport(ImageIO)] private static extern nuint CGImageSourceGetCount(IntPtr source);
     [DllImport(ImageIO)] private static extern IntPtr CGImageSourceCreateThumbnailAtIndex(IntPtr source, nuint index, IntPtr options);

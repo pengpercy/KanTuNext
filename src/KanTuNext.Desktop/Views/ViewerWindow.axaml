@@ -62,7 +62,7 @@
       </Border.Background>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
         <Button IsVisible="{Binding IsLivePhoto}" Click="OnPlayLive" Padding="8,2" FontSize="11" CornerRadius="9"
-                Background="#33FFFFFF" Foreground="White" BorderThickness="0" ToolTip.Tip="播放实况照片的动态部分"
+                Background="#33FFFFFF" Foreground="White" BorderThickness="0" ToolTip.Tip="播放实况照片的动态部分（L）"
                 chrome:WindowDecorationProperties.ElementRole="User">
           <TextBlock Text="◎ 实况" />
         </Button>

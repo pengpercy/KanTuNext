@@ -101,6 +101,7 @@ public partial class ViewerWindow : Window
             case Key.Escape: Close(); break;
             case Key.Delete or Key.Back: _ = DeleteAsync(); break;
             case Key.T when vm.OcrAvailable: vm.ToggleOcr(); break;
+            case Key.L when vm.IsLivePhoto: _ = vm.PlayLiveAsync(); break;
             case Key.C when e.KeyModifiers.HasFlag(KeyModifiers.Meta) || e.KeyModifiers.HasFlag(KeyModifiers.Control):
                 if (vm.HasOcrText && vm.ShowOcr) _ = CopyTextAsync(); else return;
                 break;
@@ -126,7 +127,7 @@ public partial class ViewerWindow : Window
     private void OnClose(object? sender, RoutedEventArgs e) => Close();
     private void OnDelete(object? sender, RoutedEventArgs e) => _ = DeleteAsync();
     private void OnOcr(object? sender, RoutedEventArgs e) => Model?.ToggleOcr();
-    private void OnPlayLive(object? sender, RoutedEventArgs e) => Model?.PlayLive();
+    private void OnPlayLive(object? sender, RoutedEventArgs e) => _ = Model?.PlayLiveAsync();
     private void OnCopyText(object? sender, RoutedEventArgs e) => _ = CopyTextAsync();
 
     private async Task CopyTextAsync()

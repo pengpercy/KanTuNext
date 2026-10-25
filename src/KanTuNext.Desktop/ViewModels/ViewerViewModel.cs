@@ -23,6 +23,7 @@ public sealed partial class ViewerViewModel : ObservableObject
         _items = [.. items];
         Index = Math.Clamp(index, 0, Math.Max(0, _items.Count - 1));
         _animation.Tick += (_, _) => NextFrame();
+        _live.Tick += (_, _) => NextLiveFrame();
         AppServices.Tags.Changed += () => Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(Tag)));
     }
 
@@ -123,10 +124,71 @@ public sealed partial class ViewerViewModel : ObservableObject
 
     public bool IsLivePhoto => Current?.IsLivePhoto == true;
 
-    /// <summary>Plays the Live Photo's motion clip (in the system player until in-window playback lands).</summary>
-    public void PlayLive()
+    private readonly DispatcherTimer _live = new(DispatcherPriority.Render);
+    private List<Bitmap>? _liveFrames;
+    private int _liveFrame;
+
+    [ObservableProperty]
+    public partial bool IsPlayingLive { get; private set; }
+
+    /// <summary>
+    /// Plays the Live Photo's motion once, in the window (macOS: frames from AVFoundation), then returns to the
+    /// still. Elsewhere, or if the clip can't be read, hands it to the system player.
+    /// </summary>
+    public async Task PlayLiveAsync()
     {
-        if (Current?.LiveVideo is { } clip) Opener.Open(clip);
+        if (Current?.LiveVideo is not { } clip || IsPlayingLive) return;
+        if (!OperatingSystem.IsMacOS())
+        {
+            Opener.Open(clip);
+            return;
+        }
+        var version = _loadVersion;
+        IsPlayingLive = true;
+        var frames = await Task.Run(() =>
+        {
+            if (MacLivePhoto.Frames(clip) is not { } decoded) return null;
+            var bitmaps = decoded.Select(ImageLoader.ToBitmap).ToList();
+            foreach (var bitmap in decoded) bitmap.Dispose();
+            return bitmaps;
+        });
+        if (frames is null || version != _loadVersion)
+        {
+            frames?.ForEach(f => f.Dispose());
+            IsPlayingLive = false;
+            if (frames is null) Opener.Open(clip);
+            return;
+        }
+        StopAnimation();
+        _liveFrames = frames;
+        _liveFrame = 0;
+        Image = frames[0];
+        _live.Interval = TimeSpan.FromSeconds(1 / MacLivePhoto.FramesPerSecond);
+        _live.Start();
+    }
+
+    private void NextLiveFrame()
+    {
+        if (_liveFrames is null) return;
+        if (++_liveFrame < _liveFrames.Count)
+        {
+            Image = _liveFrames[_liveFrame];
+            return;
+        }
+        StopLive();
+        // Back to the still (and its animation, if it has one)
+        Image = _loaded?.First;
+        if (_loaded is { IsAnimated: true }) StartAnimation();
+    }
+
+    private void StopLive()
+    {
+        _live.Stop();
+        var frames = _liveFrames;
+        _liveFrames = null;
+        IsPlayingLive = false;
+        // After the still is back on screen: recorded draw calls keep their own reference until then
+        if (frames is not null) Dispatcher.UIThread.Post(() => frames.ForEach(f => f.Dispose()), DispatcherPriority.Background);
     }
 
     public PhotoTag Tag => Current is { } c ? AppServices.Tags.Get(c.Path) : PhotoTag.None;
@@ -174,6 +236,7 @@ public sealed partial class ViewerViewModel : ObservableObject
         var loaded = await task;
         if (version != _loadVersion) return; // the user has moved on
         StopAnimation();
+        StopLive();
         _loaded = loaded;
         Image = loaded?.First;
         IsLoading = false;
@@ -200,6 +263,10 @@ public sealed partial class ViewerViewModel : ObservableObject
         _animation.Interval = durations[_frame];
     }
 
-    /// <summary>Stops the frame timer when the window closes.</summary>
-    public void Close() => StopAnimation();
+    /// <summary>Stops the frame timers when the window closes.</summary>
+    public void Close()
+    {
+        StopAnimation();
+        StopLive();
+    }
 }
