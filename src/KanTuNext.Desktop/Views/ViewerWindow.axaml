@@ -1,0 +1,101 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:KanTuNext.Desktop.ViewModels"
+        xmlns:views="clr-namespace:KanTuNext.Desktop.Views"
+        xmlns:chrome="clr-namespace:Avalonia.Controls.Chrome;assembly=Avalonia.Controls"
+        x:Class="KanTuNext.Desktop.Views.ViewerWindow" x:DataType="vm:ViewerViewModel"
+        Title="{Binding Title, FallbackValue=看图}" Icon="/Assets/kantunext.png"
+        Width="900" Height="600" MinWidth="420" MinHeight="300"
+        Background="#000000"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="36"
+        WindowDecorations="Full"
+        RequestedThemeVariant="Dark">
+  <Window.Styles>
+    <Style Selector="Button.viewerTool">
+      <Setter Property="Width" Value="44" />
+      <Setter Property="Height" Value="60" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Foreground" Value="#E6FFFFFF" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.viewerTool:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#1FFFFFFF" />
+      <Setter Property="Foreground" Value="#FFFFFFFF" />
+    </Style>
+    <Style Selector="Button.viewerTool:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="#4DFFFFFF" />
+    </Style>
+    <Style Selector="Border#ToolbarDock">
+      <Setter Property="Transitions">
+        <Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.2" /></Transitions>
+      </Setter>
+    </Style>
+  </Window.Styles>
+
+  <Grid chrome:WindowDecorationProperties.ElementRole="User">
+    <views:ZoomImage x:Name="Viewer" Source="{Binding Image}" />
+
+    <TextBlock IsVisible="{Binding ShowError}" Text="无法打开这张图片" Foreground="#99FFFFFF" FontSize="14"
+               HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+    <!-- Title strip: file name centred over a soft scrim, draggable like a title bar -->
+    <Border Height="36" VerticalAlignment="Top" chrome:WindowDecorationProperties.ElementRole="TitleBar">
+      <Border.Background>
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+          <GradientStop Color="#73000000" Offset="0" />
+          <GradientStop Color="#00000000" Offset="1" />
+        </LinearGradientBrush>
+      </Border.Background>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+        <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="Medium" Foreground="White" />
+        <TextBlock Text="{Binding Position}" FontSize="12" Foreground="#99FFFFFF" />
+      </StackPanel>
+    </Border>
+
+    <!-- Floating toolbar, after the original: shown while the pointer moves, hidden after a short pause -->
+    <Border x:Name="ToolbarDock" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,20"
+            Background="#D91C1C1E" CornerRadius="8" Padding="12,0">
+      <StackPanel Orientation="Horizontal">
+        <Button Classes="viewerTool" ToolTip.Tip="上一张（←）" Click="OnPrevious" IsEnabled="{Binding CanGoBack}">
+          <PathIcon Data="{StaticResource Icon.menu-left-outline}" Width="30" Height="30" />
+        </Button>
+        <Button Classes="viewerTool" ToolTip.Tip="下一张（→）" Click="OnNext" IsEnabled="{Binding CanGoForward}">
+          <PathIcon Data="{StaticResource Icon.menu-right-outline}" Width="30" Height="30" />
+        </Button>
+        <Button Classes="viewerTool" ToolTip.Tip="好" IsEnabled="False">
+          <PathIcon Data="{StaticResource Icon.thumb-up-outline}" Width="22" Height="22" />
+        </Button>
+        <Button Classes="viewerTool" ToolTip.Tip="中" IsEnabled="False">
+          <PathIcon Data="{StaticResource Icon.emoticon-neutral-outline}" Width="22" Height="22" />
+        </Button>
+        <Button Classes="viewerTool" ToolTip.Tip="差" IsEnabled="False">
+          <PathIcon Data="{StaticResource Icon.thumb-down-outline}" Width="22" Height="22" />
+        </Button>
+        <Button Classes="viewerTool" ToolTip.Tip="放大（+）" Click="OnZoomIn">
+          <PathIcon Data="{StaticResource Icon.magnify-plus-outline}" Width="22" Height="22" />
+        </Button>
+        <Button Classes="viewerTool" ToolTip.Tip="缩小（-）" Click="OnZoomOut">
+          <PathIcon Data="{StaticResource Icon.magnify-minus-outline}" Width="22" Height="22" />
+        </Button>
+        <Button Classes="viewerTool" ToolTip.Tip="实际大小（1）" Click="OnActualSize">
+          <TextBlock Text="1:1" FontSize="16" FontWeight="Light" />
+        </Button>
+        <Button Classes="viewerTool" ToolTip.Tip="适应窗口（0）" Click="OnFit">
+          <PathIcon Data="{StaticResource Icon.fit-to-screen-outline}" Width="22" Height="22" />
+        </Button>
+        <Button Classes="viewerTool" ToolTip.Tip="旋转（R）" Click="OnRotate">
+          <PathIcon Data="{StaticResource Icon.rotate-left}" Width="22" Height="22" />
+        </Button>
+        <Button Classes="viewerTool" ToolTip.Tip="返回缩略图（Esc）" Click="OnClose">
+          <PathIcon Data="{StaticResource Icon.dots-grid}" Width="22" Height="22" />
+        </Button>
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

@@ -14,6 +14,12 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         if (OperatingSystem.IsWindows()) WindowsResizeFrame.Attach(this);
+        Grid.Opened += file =>
+        {
+            if (DataContext is not MainViewModel vm || file.Kind != KanTuNext.Core.Library.MediaKind.Image) return;
+            var images = vm.Groups?.SelectMany(g => g.Items).Where(f => f.Kind == KanTuNext.Core.Library.MediaKind.Image).ToList() ?? [];
+            ViewerWindow.Open(this, images, images.IndexOf(file));
+        };
         // Keep the toolbar's right-hand icons clear of the drawn min/max/close buttons
         if (WindowChrome.HasClientCaptionButtons)
             Toolbar.Margin = new Thickness(Toolbar.Margin.Left, 0, WindowChrome.CaptionButtonsWidth + 12, 0);

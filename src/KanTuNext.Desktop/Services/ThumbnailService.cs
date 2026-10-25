@@ -211,9 +211,10 @@ public sealed class ThumbnailService
             SKEncodedOrigin.TopRight => SKMatrix.CreateScale(-1, 1, c, c),
             SKEncodedOrigin.BottomRight => SKMatrix.CreateRotationDegrees(180, c, c),
             SKEncodedOrigin.BottomLeft => SKMatrix.CreateScale(1, -1, c, c),
-            SKEncodedOrigin.LeftTop => SKMatrix.CreateRotationDegrees(90, c, c).PreConcat(SKMatrix.CreateScale(-1, 1, c, c)),
+            // PreConcat applies the flip first: flip then 270° is a transpose (origin 5), flip then 90° a transverse (7)
+            SKEncodedOrigin.LeftTop => SKMatrix.CreateRotationDegrees(270, c, c).PreConcat(SKMatrix.CreateScale(-1, 1, c, c)),
             SKEncodedOrigin.RightTop => SKMatrix.CreateRotationDegrees(90, c, c),
-            SKEncodedOrigin.RightBottom => SKMatrix.CreateRotationDegrees(270, c, c).PreConcat(SKMatrix.CreateScale(-1, 1, c, c)),
+            SKEncodedOrigin.RightBottom => SKMatrix.CreateRotationDegrees(90, c, c).PreConcat(SKMatrix.CreateScale(-1, 1, c, c)),
             SKEncodedOrigin.LeftBottom => SKMatrix.CreateRotationDegrees(270, c, c),
             _ => SKMatrix.Identity,
         };
