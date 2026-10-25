@@ -30,6 +30,11 @@ public static class ExifReader
             Span<byte> head = stackalloc byte[4];
             if (stream.Read(head) < 4) return default;
             if (head[0] == 0xFF && head[1] == 0xD8) return ReadJpeg(stream);
+            if (IsIsoBmff(path))
+            {
+                stream.Position = 0;
+                return IsoBmffExif.Read(stream) is { } tiff ? ParseTiff(tiff) : default;
+            }
             if ((head[0] == 'I' && head[1] == 'I') || (head[0] == 'M' && head[1] == 'M'))
             {
                 var buffer = new byte[(int)Math.Min(MaxHeader, stream.Length)];
@@ -39,14 +44,18 @@ public static class ExifReader
             }
             return default;
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or EndOfStreamException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or EndOfStreamException or ArgumentOutOfRangeException)
         {
             return default;
         }
     }
 
     private static bool HasExifContainer(string path) =>
-        Path.GetExtension(path).ToLowerInvariant() is ".jpg" or ".jpeg" or ".jpe" or ".tif" or ".tiff";
+        Path.GetExtension(path).ToLowerInvariant() is ".jpg" or ".jpeg" or ".jpe" or ".tif" or ".tiff" || IsIsoBmff(path);
+
+    /// <summary>HEIC/HEIF, AVIF and JPEG XL keep EXIF in ISO-BMFF boxes.</summary>
+    private static bool IsIsoBmff(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() is ".heic" or ".heif" or ".hif" or ".avif" or ".jxl";
 
     private static ExifInfo ReadJpeg(FileStream stream)
     {

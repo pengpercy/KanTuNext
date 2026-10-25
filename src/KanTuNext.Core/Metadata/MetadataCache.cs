@@ -9,7 +9,7 @@ namespace KanTuNext.Core.Metadata;
 public sealed class MetadataCache
 {
     private const int Magic = 0x434D544B; // "KTMC"
-    private const int Version = 1;
+    private const int Version = 2; // 2: HEIC/AVIF/JPEG XL capture dates are read now
 
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
     private volatile bool _dirty;
