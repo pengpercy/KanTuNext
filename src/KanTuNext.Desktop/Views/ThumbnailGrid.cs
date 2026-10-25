@@ -268,10 +268,64 @@ public sealed class ThumbnailGrid : Control
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Key == Key.Enter && _selected is var (s, i))
+        if (_sections.Count == 0) return;
+        switch (e.Key)
         {
-            Opened?.Invoke(_sections[s].Group.Items[i]);
-            e.Handled = true;
+            case Key.Enter or Key.Space when _selected is var (s, i):
+                Opened?.Invoke(_sections[s].Group.Items[i]);
+                break;
+            case Key.Left: Move(-1); break;
+            case Key.Right: Move(1); break;
+            case Key.Up: MoveRow(-1); break;
+            case Key.Down: MoveRow(1); break;
+            case Key.Home: Select(0, 0); break;
+            case Key.End: Select(_sections.Count - 1, _sections[^1].Group.Items.Count - 1); break;
+            default: return;
         }
+        e.Handled = true;
+    }
+
+    /// <summary>Previous/next item, continuing into the neighbouring month.</summary>
+    private void Move(int delta)
+    {
+        if (_selected is not var (s, i)) { Select(0, 0); return; }
+        i += delta;
+        if (i < 0 && s > 0) { s--; i = _sections[s].Group.Items.Count - 1; }
+        else if (i >= _sections[s].Group.Items.Count && s < _sections.Count - 1) { s++; i = 0; }
+        Select(s, Math.Clamp(i, 0, _sections[s].Group.Items.Count - 1));
+    }
+
+    /// <summary>Same column one row up/down; across a month boundary, the nearest item in that month's last/first row.</summary>
+    private void MoveRow(int direction)
+    {
+        if (_selected is not var (s, i)) { Select(0, 0); return; }
+        var column = i % _columns;
+        var count = _sections[s].Group.Items.Count;
+        var next = i + direction * _columns;
+        if (next >= 0 && next < count) { Select(s, next); return; }
+        if (direction > 0 && next >= count && i / _columns < (count - 1) / _columns) { Select(s, count - 1); return; }
+        var target = s + direction;
+        if (target < 0 || target >= _sections.Count) return;
+        var targetCount = _sections[target].Group.Items.Count;
+        var row = direction > 0 ? 0 : (targetCount - 1) / _columns;
+        Select(target, Math.Min(row * _columns + column, targetCount - 1));
+    }
+
+    private void Select(int section, int index)
+    {
+        if (section < 0 || section >= _sections.Count || index < 0) return;
+        _selected = (section, index);
+        // Keep the selection on screen
+        if (_scroller is not null)
+        {
+            var rect = ItemRect(_sections[section], index);
+            var top = rect.Top - (index < _columns ? (section == 0 ? FirstHeader : Header) : 0);
+            var bottom = rect.Bottom + (ShowSizes ? CaptionHeight : 0) + ItemGap;
+            var offset = _scroller.Offset.Y;
+            if (top < offset) offset = top;
+            else if (bottom > offset + _scroller.Viewport.Height) offset = bottom - _scroller.Viewport.Height;
+            _scroller.Offset = _scroller.Offset.WithY(Math.Max(0, offset));
+        }
+        InvalidateVisual();
     }
 }

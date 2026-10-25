@@ -164,7 +164,7 @@ public sealed partial class MainViewModel : ObservableObject
     public partial SidebarItem? Selected { get; private set; }
 
     /// <summary>Empty-state wording, as in the original.</summary>
-    public string EmptyText => Selected?.Category switch
+    public string EmptyText => SearchText.Trim().Length > 0 && _unfiltered is { Count: > 0 } ? $"没有找到「{SearchText.Trim()}」" : Selected?.Category switch
     {
         null => "",
         LibraryCategory.Folder => $"{Selected.Title} 里没有图片",
@@ -174,8 +174,24 @@ public sealed partial class MainViewModel : ObservableObject
     };
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasItems), nameof(ShowEmpty))]
+    [NotifyPropertyChangedFor(nameof(HasItems), nameof(ShowEmpty), nameof(EmptyText))]
     public partial IReadOnlyList<MediaGroup>? Groups { get; private set; }
+
+    // ---- 找图
+    private IReadOnlyList<MediaGroup>? _unfiltered;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EmptyText))]
+    public partial string SearchText { get; set; } = "";
+
+    partial void OnSearchTextChanged(string value) => Groups = _unfiltered is null ? null : Search.Filter(_unfiltered, value);
+
+    /// <summary>What the current view shows before 找图 filters it.</summary>
+    private void SetGroups(IReadOnlyList<MediaGroup>? groups)
+    {
+        _unfiltered = groups;
+        Groups = groups is null ? null : Search.Filter(groups, SearchText);
+    }
 
     /// <summary>Sizes under thumbnails in 大图片 and 屏幕快照.</summary>
     [ObservableProperty]
@@ -247,7 +263,7 @@ public sealed partial class MainViewModel : ObservableObject
             var progress = new Progress<double>(p => DuplicateProgress = $"正在扫描… {p:P0}");
             var groups = await Task.Run(() => LibraryFilters.Duplicates(AllFiles.Where(f => f.Kind == MediaKind.Image), progress, cts.Token), cts.Token);
             if (cts.IsCancellationRequested || Selected?.Category != LibraryCategory.Duplicates) return;
-            Groups = groups;
+            SetGroups(groups);
             Sections.SelectMany(s => s.Items).First(i => i.Category == LibraryCategory.Duplicates).Count =
                 groups.Sum(g => g.Items.Count - 1).ToString();
         }
@@ -293,7 +309,7 @@ public sealed partial class MainViewModel : ObservableObject
         var cts = _load = new CancellationTokenSource();
         if (!refresh)
         {
-            Groups = null;
+            SetGroups(null);
             Watch(item?.Category == LibraryCategory.Folder ? item.Path : null);
             _duplicates?.Cancel();
             ShowSizes = item?.Category is LibraryCategory.LargeImages or LibraryCategory.Screenshots or LibraryCategory.RecentlyDeleted;
@@ -307,7 +323,7 @@ public sealed partial class MainViewModel : ObservableObject
             {
                 if (_allScanned is { } scanning) await scanning;
                 var filtered = await Task.Run(() => FilterGroups(item.Category), cts.Token);
-                if (!cts.IsCancellationRequested) Groups = filtered;
+                if (!cts.IsCancellationRequested) SetGroups(filtered);
             }
             catch (OperationCanceledException)
             {
@@ -321,13 +337,13 @@ public sealed partial class MainViewModel : ObservableObject
         if (item?.Category == LibraryCategory.RecentlyDeleted)
         {
             var deleted = await Task.Run(DeletedGroups, cts.Token);
-            if (!cts.IsCancellationRequested) Groups = deleted;
+            if (!cts.IsCancellationRequested) SetGroups(deleted);
             return;
         }
         if (item is not null && TagOf(item.Category) is var tag and not PhotoTag.None)
         {
             var tagged = await Task.Run(() => TimelineBuilder.ByMonth(TaggedFiles(tag)), cts.Token);
-            if (!cts.IsCancellationRequested) Groups = tagged;
+            if (!cts.IsCancellationRequested) SetGroups(tagged);
             return;
         }
         if (item is not { Category: LibraryCategory.Folder, Path: { } folder }) return;
@@ -344,7 +360,7 @@ public sealed partial class MainViewModel : ObservableObject
             Remember(folder, files);
             UpdateFilterCounts();
             if (cts.IsCancellationRequested) return;
-            Groups = groups;
+            SetGroups(groups);
             item.Count = files.Count > 0 ? files.Count.ToString() : "";
         }
         catch (OperationCanceledException)
