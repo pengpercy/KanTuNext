@@ -158,17 +158,28 @@ public sealed class ThumbnailService
             return new Bitmap(stream);
         }
 
-        using var source = File.OpenRead(request.Path);
-        using var codec = SKCodec.Create(source);
-        if (codec is null) return null;
-
-        var full = codec.Info;
-        var shortSide = Math.Min(full.Width, full.Height);
-        if (shortSide <= 0) return null;
-        // The square crop needs the short side at the bucket edge, so ask for the long side proportionally
-        var longSide = Math.Max(full.Width, full.Height);
-        using var decoded = ScaledDecoder.Decode(codec, (int)Math.Ceiling((double)request.Edge * longSide / shortSide));
+        SKBitmap? decoded;
+        var origin = SKEncodedOrigin.TopLeft;
+        using (var source = File.OpenRead(request.Path))
+        using (var codec = SKCodec.Create(source))
+        {
+            if (codec is not null)
+            {
+                var full = codec.Info;
+                var shortSide = Math.Min(full.Width, full.Height);
+                if (shortSide <= 0) return null;
+                // The square crop needs the short side at the bucket edge, so ask for the long side proportionally
+                var longSide = Math.Max(full.Width, full.Height);
+                decoded = ScaledDecoder.Decode(codec, (int)Math.Ceiling((double)request.Edge * longSide / shortSide));
+                origin = codec.EncodedOrigin;
+            }
+            // No Skia codec (HEIC, AVIF, JPEG XL, TIFF, RAW…): the platform's decoder, already upright.
+            // 3× the edge covers panoramas up to 3:1 for the square crop.
+            else if (OperatingSystem.IsMacOS()) decoded = MacImageDecoder.Decode(request.Path, request.Edge * 3);
+            else decoded = null;
+        }
         if (decoded is null) return null;
+        using var _ = decoded;
         var dims = new SKSizeI(decoded.Width, decoded.Height);
 
         // Center square crop, scaled to the bucket edge (never upscaled), then the EXIF orientation:
@@ -180,7 +191,7 @@ public sealed class ThumbnailService
         using var surface = SKSurface.Create(targetInfo);
         var canvas = surface.Canvas;
         canvas.Clear(SKColors.Transparent);
-        canvas.SetMatrix(OrientationMatrix(codec.EncodedOrigin, edge));
+        canvas.SetMatrix(OrientationMatrix(origin, edge));
         using (var image = SKImage.FromBitmap(decoded))
             canvas.DrawImage(image, src, SKRect.Create(edge, edge), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
         canvas.Flush();

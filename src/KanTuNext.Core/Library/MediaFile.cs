@@ -15,9 +15,14 @@ public sealed record MediaFile(string Path, MediaKind Kind, long Length, DateTim
 
 public static class MediaTypes
 {
-    // Decodable now (Skia) or later through the OS codecs (HEIC/TIFF); videos only list with a thumbnail
+    // Skia decodes the common formats; the platform decoder (macOS ImageIO, Windows WIC) the rest:
+    // HEIC/HEIF, AVIF, JPEG XL, TIFF, PSD and camera RAW. Videos only list with a placeholder.
     private static readonly HashSet<string> Images = new(StringComparer.OrdinalIgnoreCase)
-        { ".jpg", ".jpeg", ".jpe", ".png", ".gif", ".bmp", ".webp", ".heic", ".heif", ".tif", ".tiff" };
+    {
+        ".jpg", ".jpeg", ".jpe", ".png", ".gif", ".bmp", ".webp", ".ico",
+        ".heic", ".heif", ".hif", ".avif", ".jxl", ".tif", ".tiff", ".psd",
+        ".dng", ".cr2", ".cr3", ".nef", ".arw", ".raf", ".orf", ".rw2", ".pef", ".srw",
+    };
     private static readonly HashSet<string> Videos = new(StringComparer.OrdinalIgnoreCase)
         { ".mp4", ".mov", ".m4v", ".avi", ".mkv", ".wmv", ".3gp" };
 

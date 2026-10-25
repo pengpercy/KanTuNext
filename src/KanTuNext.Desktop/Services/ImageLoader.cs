@@ -103,8 +103,8 @@ public sealed class ImageLoader
             using (var stream = File.OpenRead(path))
             using (var codec = SKCodec.Create(stream))
             {
-                if (codec is null) return null;
-                if (codec.FrameCount > 1 && DecodeAnimation(codec) is { } animation) return animation;
+                // No Skia codec isn't the end: DecodeUpright falls back to the platform decoder
+                if (codec is { FrameCount: > 1 } && DecodeAnimation(codec) is { } animation) return animation;
             }
             using var upright = DecodeUpright(path, maxEdge, out var reduced);
             return upright is null ? null : new LoadedImage(ToBitmap(upright)) { IsReduced = reduced };
@@ -127,7 +127,20 @@ public sealed class ImageLoader
         reduced = false;
         using var stream = File.OpenRead(path);
         using var codec = SKCodec.Create(stream);
-        if (codec is null) return null;
+        if (codec is null)
+        {
+            // No Skia codec (HEIC, AVIF, JPEG XL, TIFF, RAW…): the platform's decoder, already upright. Its size
+            // is unknown up front, so a result that fills the limit is taken as reduced (full decode on zoom).
+            if (!OperatingSystem.IsMacOS() || MacImageDecoder.Decode(path, maxEdge) is not { } platform) return null;
+            if (platform.ColorType != colorType)
+            {
+                var converted = platform.Copy(colorType);
+                platform.Dispose();
+                platform = converted;
+            }
+            reduced = Math.Max(platform.Width, platform.Height) >= maxEdge;
+            return platform;
+        }
 
         var full = codec.Info;
         reduced = Math.Max(full.Width, full.Height) > maxEdge;
