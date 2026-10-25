@@ -15,10 +15,18 @@ public class App : Application
         WindowChrome.Install();
     }
 
+    /// <summary>macOS app menu: 设置… (⌘,).</summary>
+    private void OnSettingsMenu(object? sender, EventArgs e) =>
+        ((ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow as MainWindow)?.ShowSettings();
+
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            desktop.MainWindow = new MainWindow { DataContext = new MainViewModel() };
+        {
+            var vm = new MainViewModel();
+            SettingsViewModel.Apply(vm.Theme);
+            desktop.MainWindow = new MainWindow { DataContext = vm };
+        }
         base.OnFrameworkInitializationCompleted();
     }
 }

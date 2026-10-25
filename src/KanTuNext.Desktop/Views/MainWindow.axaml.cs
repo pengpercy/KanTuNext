@@ -15,6 +15,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         if (OperatingSystem.IsWindows()) WindowsResizeFrame.Attach(this);
         Grid.ItemContextRequested += ShowContextMenu;
+        Grid.SelectionChanged += file => { if (DataContext is MainViewModel vm) vm.SelectedFile = file; };
         Grid.Opened += file =>
         {
             if (DataContext is not MainViewModel vm || file.Kind != KanTuNext.Core.Library.MediaKind.Image) return;
@@ -71,6 +72,23 @@ public partial class MainWindow : Window
         var menu = new ContextMenu { ItemsSource = items };
         menu.Open(Grid);
     }
+
+    private SettingsWindow? _settings;
+
+    /// <summary>One settings window; a second request brings it forward.</summary>
+    public void ShowSettings()
+    {
+        if (DataContext is not MainViewModel vm) return;
+        if (_settings is { IsVisible: true })
+        {
+            _settings.Activate();
+            return;
+        }
+        _settings = new SettingsWindow { DataContext = vm.CreateSettings() };
+        _settings.Show(this);
+    }
+
+    private void OnSettings(object? sender, RoutedEventArgs e) => ShowSettings();
 
     private void OnScanDuplicates(object? sender, RoutedEventArgs e) => _ = (DataContext as MainViewModel)?.ScanDuplicatesAsync();
 

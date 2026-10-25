@@ -62,6 +62,9 @@ public sealed class ThumbnailGrid : Control
     /// <summary>Raised on double-click or Enter with the chosen file (opens the viewer).</summary>
     public event Action<MediaFile>? Opened;
 
+    /// <summary>The selected file changed (null: nothing selected).</summary>
+    public event Action<MediaFile?>? SelectionChanged;
+
     /// <summary>Raised on right-click over a thumbnail (after selecting it), for the context menu.</summary>
     public event Action<MediaFile>? ItemContextRequested;
 
@@ -88,6 +91,7 @@ public sealed class ThumbnailGrid : Control
         if (change.Property == GroupsProperty)
         {
             _selected = null;
+            SelectionChanged?.Invoke(null);
             // A fresh folder starts at the top; a live refresh (old list replaced by a new one) keeps the position
             if (change.OldValue is null) _scroller?.ScrollToHome();
         }
@@ -258,6 +262,7 @@ public sealed class ThumbnailGrid : Control
         base.OnPointerPressed(e);
         Focus();
         _selected = HitTest(e.GetPosition(this));
+        SelectionChanged?.Invoke(_selected is var (ps, pi) ? _sections[ps].Group.Items[pi] : null);
         InvalidateVisual();
         if (_selected is not var (s, i)) return;
         var file = _sections[s].Group.Items[i];
@@ -315,6 +320,7 @@ public sealed class ThumbnailGrid : Control
     {
         if (section < 0 || section >= _sections.Count || index < 0) return;
         _selected = (section, index);
+        SelectionChanged?.Invoke(_sections[section].Group.Items[index]);
         // Keep the selection on screen
         if (_scroller is not null)
         {

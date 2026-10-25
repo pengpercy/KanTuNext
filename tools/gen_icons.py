@@ -16,7 +16,7 @@ ICONS = [
     "content-duplicate", "trash-can-outline", "thumb-up", "emoticon-neutral", "thumb-down",
     "chevron-right", "chevron-down",
     # toolbar
-    "chevron-left", "magnify", "export-variant", "information-outline",
+    "chevron-left", "magnify", "export-variant", "information-outline", "cog-outline",
     # viewer toolbar
     "menu-left-outline", "menu-right-outline", "thumb-up-outline", "emoticon-neutral-outline",
     "thumb-down-outline", "magnify-plus-outline", "magnify-minus-outline", "fit-to-screen-outline",

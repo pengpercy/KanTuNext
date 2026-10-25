@@ -12,6 +12,12 @@ public sealed class AppSettings
     /// <summary>The folder open when the app last quit, reopened on launch.</summary>
     public string? LastFolder { get; set; }
 
+    /// <summary>小/中/大/最大, as last chosen.</summary>
+    public Library.ThumbnailSize ThumbnailSize { get; set; } = Library.ThumbnailSize.Small;
+
+    /// <summary>Follow the system, or force light/dark.</summary>
+    public AppTheme Theme { get; set; } = AppTheme.System;
+
     public static string FilePath => Path.Combine(AppPaths.DataDirectory, "settings.json");
 
     public static AppSettings Load()
@@ -37,6 +43,13 @@ public sealed class AppSettings
     }
 }
 
-[JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+public enum AppTheme
+{
+    System,
+    Light,
+    Dark,
+}
+
+[JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UseStringEnumConverter = true)]
 [JsonSerializable(typeof(AppSettings))]
 internal sealed partial class SettingsJson : JsonSerializerContext;

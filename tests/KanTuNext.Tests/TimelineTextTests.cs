@@ -26,3 +26,23 @@ public class TimelineTextTests
         Assert.Equal("最大", ThumbnailSizes.Label(ThumbnailSize.Largest));
     }
 }
+
+public sealed class AppSettingsTests : IDisposable
+{
+    private readonly string _dir = Directory.CreateTempSubdirectory("kantunext-settings-").FullName;
+
+    public void Dispose() => Directory.Delete(_dir, true);
+
+    [Fact]
+    public void RoundTripsSizeAndThemeAsNames()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            new KanTuNext.Core.Settings.AppSettings { ThumbnailSize = ThumbnailSize.Large, Theme = KanTuNext.Core.Settings.AppTheme.Dark },
+            KanTuNext.Core.Settings.SettingsJson.Default.AppSettings);
+        Assert.Contains("\"Large\"", json);
+        Assert.Contains("\"Dark\"", json);
+        var back = System.Text.Json.JsonSerializer.Deserialize(json, KanTuNext.Core.Settings.SettingsJson.Default.AppSettings)!;
+        Assert.Equal(ThumbnailSize.Large, back.ThumbnailSize);
+        Assert.Equal(KanTuNext.Core.Settings.AppTheme.Dark, back.Theme);
+    }
+}

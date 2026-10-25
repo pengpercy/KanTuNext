@@ -11,6 +11,12 @@
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>
+  <!-- macOS application menu (other platforms use the toolbar's settings button) -->
+  <NativeMenu.Menu>
+    <NativeMenu>
+      <NativeMenuItem Header="设置…" Gesture="Cmd+OemComma" Click="OnSettingsMenu" />
+    </NativeMenu>
+  </NativeMenu.Menu>
   <Application.Styles>
     <FluentTheme />
     <StyleInclude Source="avares://KanTuNext/Resources/Styles.axaml" />

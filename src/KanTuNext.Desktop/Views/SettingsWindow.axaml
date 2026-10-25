@@ -1,0 +1,33 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:KanTuNext.Desktop.ViewModels"
+        x:Class="KanTuNext.Desktop.Views.SettingsWindow" x:DataType="vm:SettingsViewModel"
+        Title="设置" Icon="/Assets/kantunext.png"
+        Width="460" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource PageBrush}" FontSize="13">
+  <StackPanel Margin="24,20,24,24" Spacing="20">
+    <StackPanel Spacing="8">
+      <TextBlock Text="外观" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+      <StackPanel Orientation="Horizontal" Spacing="18">
+        <RadioButton GroupName="theme" Content="跟随系统" IsChecked="{Binding IsSystemTheme}" />
+        <RadioButton GroupName="theme" Content="浅色" IsChecked="{Binding IsLightTheme}" />
+        <RadioButton GroupName="theme" Content="深色" IsChecked="{Binding IsDarkTheme}" />
+      </StackPanel>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock Text="缓存" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding CacheText}" VerticalAlignment="Center" Foreground="{DynamicResource SubTextBrush}"
+                   TextWrapping="Wrap" />
+        <Button Grid.Column="1" Content="清除缩略图缓存" Click="OnClearCache" Margin="12,0,0,0" />
+      </Grid>
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="关于" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+      <TextBlock Text="{Binding VersionText}" Foreground="{DynamicResource SubTextBrush}" />
+      <TextBlock Text="完全离线运行，不收集、不上传任何数据。" Foreground="{DynamicResource SubTextBrush}" />
+    </StackPanel>
+  </StackPanel>
+</Window>

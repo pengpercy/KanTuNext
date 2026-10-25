@@ -44,6 +44,7 @@ public sealed partial class MainViewModel : ObservableObject
                 Item(LibraryCategory.TagBad, "差", "thumb-down"),
             ]),
         ];
+        Size = _settings.ThumbnailSize;
         var folders = Sections[0].Items;
         (folders.FirstOrDefault(i => i.Path == _settings.LastFolder) ?? folders[0]).IsSelected = true;
         _ = CountFoldersAsync();
@@ -152,6 +153,11 @@ public sealed partial class MainViewModel : ObservableObject
         }
         existing.IsSelected = true;
     }
+
+    /// <summary>The settings window's model, sharing this window's settings object.</summary>
+    public SettingsViewModel CreateSettings() => new(_settings, SaveSettings);
+
+    public KanTuNext.Core.Settings.AppTheme Theme => _settings.Theme;
 
     private void SaveSettings()
     {
@@ -432,6 +438,22 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSmall), nameof(IsMedium), nameof(IsLarge), nameof(IsLargest), nameof(ItemEdge), nameof(ItemGap))]
     public partial ThumbnailSize Size { get; set; } = ThumbnailSize.Small;
+
+    partial void OnSizeChanged(ThumbnailSize value)
+    {
+        if (_settings.ThumbnailSize == value) return;
+        _settings.ThumbnailSize = value;
+        SaveSettings();
+    }
+
+    // ---- 简介: the selected photo's details
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(Info))]
+    public partial MediaFile? SelectedFile { get; set; }
+
+    public bool HasSelection => SelectedFile is not null;
+
+    public IReadOnlyList<InfoRow> Info => SelectedFile is { } f ? PhotoInfo.Rows(f) : [];
 
     public bool IsSmall { get => Size == ThumbnailSize.Small; set { if (value) Size = ThumbnailSize.Small; } }
     public bool IsMedium { get => Size == ThumbnailSize.Medium; set { if (value) Size = ThumbnailSize.Medium; } }
