@@ -174,7 +174,7 @@ public sealed partial class MainViewModel : ObservableObject
         var counts = (files ?? [])
             .Where(f => f.Path.StartsWith(prefix, StringComparison.Ordinal) && f.Path.IndexOf(Path.DirectorySeparatorChar, prefix.Length) > 0)
             .GroupBy(f => f.Path[..f.Path.IndexOf(Path.DirectorySeparatorChar, prefix.Length)], StringComparer.Ordinal)
-            .OrderBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase);
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
         var at = list.IndexOf(folder) + 1;
         foreach (var group in counts)
         {
@@ -440,19 +440,40 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>Rescans the open folder (debounced) when files in it are added, removed, renamed or rewritten.</summary>
+    private int _watchGeneration;
+
+    /// <summary>
+    /// Watches the open folder for changes. Setting up (and tearing down) a recursive watcher costs about 100 ms
+    /// on macOS (FSEvents), so it happens off the UI thread; a watcher that finishes after the user has moved on
+    /// to another folder is dropped.
+    /// </summary>
     private void Watch(string? folder)
     {
-        _watcher?.Dispose();
+        if (_watcher is { } old) _ = Task.Run(old.Dispose);
         _watcher = null;
-        if (folder is null || !Directory.Exists(folder)) return;
+        var generation = ++_watchGeneration;
+        if (folder is null) return;
         _refreshTimer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(800), DispatcherPriority.Background, (_, _) =>
         {
             _refreshTimer!.Stop();
             _ = LoadAsync(Selected, refresh: true);
         });
+        _ = AttachAsync();
+
+        async Task AttachAsync()
+        {
+            var watcher = await Task.Run(() => CreateWatcher(folder));
+            if (generation == _watchGeneration) _watcher = watcher;
+            else watcher?.Dispose();
+        }
+    }
+
+    private FileSystemWatcher? CreateWatcher(string folder)
+    {
+        if (!Directory.Exists(folder)) return null;
         try
         {
-            _watcher = new FileSystemWatcher(folder)
+            var watcher = new FileSystemWatcher(folder)
             {
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size,
@@ -461,15 +482,16 @@ public sealed partial class MainViewModel : ObservableObject
             {
                 if (e.ChangeType != WatcherChangeTypes.Changed || MediaTypes.KindOf(e.FullPath) is not null) Poke();
             };
-            _watcher.Created += changed;
-            _watcher.Deleted += changed;
-            _watcher.Changed += changed;
-            _watcher.Renamed += (_, _) => Poke();
-            _watcher.EnableRaisingEvents = true;
+            watcher.Created += changed;
+            watcher.Deleted += changed;
+            watcher.Changed += changed;
+            watcher.Renamed += (_, _) => Poke();
+            watcher.EnableRaisingEvents = true;
+            return watcher;
         }
         catch (Exception e) when (e is IOException or ArgumentException or PlatformNotSupportedException)
         {
-            _watcher = null; // too many watchers or an unwatchable volume: the folder still works, just without live updates
+            return null; // too many watchers or an unwatchable volume: the folder still works, just without live updates
         }
 
         void Poke() => Dispatcher.UIThread.Post(() => { _refreshTimer!.Stop(); _refreshTimer.Start(); });

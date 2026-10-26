@@ -12,6 +12,9 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <TreatAsLocalProperty>PublishAot;DisableAOT</TreatAsLocalProperty>
+    <!-- No ICU: about 50 ms faster to the first window, and Linux packages don't need libicu. All text the app
+         formats is fixed Chinese patterns, so culture data isn't needed. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <!-- Win7 package (-p:Win7Compat=true, win-x64 only), as in Downio: YY-Thunks stands in for the Windows 8+
