@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Linux 支持 TIFF：安装包自带 libtiff（内含 libjpeg-turbo），支持 LZW、Deflate、PackBits、JPEG、传真等常见压缩，以及调色板、灰度、16 位和带透明的图片；多页 TIFF 显示第一页。
+
 ## 0.1.0
 
 首个版本：离线看图与图片整理，不联网，不收集任何数据。

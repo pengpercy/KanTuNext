@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds libheif (HEIC/HEIF + AVIF) as one shared library with libde265 (HEVC) and dav1d (AV1) linked in
-# statically, plus the license texts that ship with it.
+# statically, and libtiff with libjpeg-turbo linked in (zlib from the system), plus the license texts that ship
+# with them.
 # usage: build-codecs.sh <out-dir>
 #   Linux: run in the ubuntu:20.04 build container so the glibc 2.31 baseline holds (needs g++-10, cmake, meson,
 #   ninja, nasm on x64). macOS: local testing only; packages rely on ImageIO.
@@ -21,10 +22,14 @@ fetch() { # url dir
 fetch "https://github.com/strukturag/libheif/archive/refs/tags/v$LIBHEIF_VERSION.tar.gz" "libheif-$LIBHEIF_VERSION"
 fetch "https://github.com/strukturag/libde265/archive/refs/tags/v$LIBDE265_VERSION.tar.gz" "libde265-$LIBDE265_VERSION"
 fetch "https://code.videolan.org/videolan/dav1d/-/archive/$DAV1D_VERSION/dav1d-$DAV1D_VERSION.tar.gz" "dav1d-$DAV1D_VERSION"
+fetch "https://download.osgeo.org/libtiff/tiff-$LIBTIFF_VERSION.tar.gz" "tiff-$LIBTIFF_VERSION"
+fetch "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/$LIBJPEG_TURBO_VERSION.tar.gz" "libjpeg-turbo-$LIBJPEG_TURBO_VERSION"
 
 if [[ $(uname) == Darwin ]]; then
     lib=libheif.1.dylib
+    tiff=libtiff.6.dylib
     link_flags=""
+    tiff_link_flags=""
 else
     lib=libheif.so.1
     export CC=${CC:-gcc-10} CXX=${CXX:-g++-10}
@@ -32,6 +37,9 @@ else
     # so neither it nor the static codecs can clash with another copy in the process
     printf '{ global: heif_*; local: *; };\n' > "$WORK/exports.map"
     link_flags="-static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL -Wl,--version-script=$WORK/exports.map"
+    tiff=libtiff.so.6
+    # libtiff's own version script already limits exports to its API; this keeps libjpeg's private
+    tiff_link_flags="-Wl,--exclude-libs,ALL"
 fi
 
 meson setup "$WORK/dav1d-build" "$WORK/dav1d-$DAV1D_VERSION" --wipe --buildtype=release --default-library=static \
@@ -58,11 +66,30 @@ cmake -S "$WORK/libheif-$LIBHEIF_VERSION" -B "$WORK/heif-build" -G Ninja -DCMAKE
     -DCMAKE_SHARED_LINKER_FLAGS="$link_flags" -DCMAKE_CXX_STANDARD_LIBRARIES="-lpthread -ldl -lm"
 cmake --build "$WORK/heif-build" -j "$jobs"
 
+cmake -S "$WORK/libjpeg-turbo-$LIBJPEG_TURBO_VERSION" -B "$WORK/jpeg-build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="$PREFIX" -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_TURBOJPEG=OFF
+cmake --build "$WORK/jpeg-build" -j "$jobs" --target install
+
+# Classic codecs only (none, LZW, PackBits, Deflate, JPEG, old JPEG, CCITT); no extra dependencies
+cmake -S "$WORK/tiff-$LIBTIFF_VERSION" -B "$WORK/tiff-build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="$PREFIX" -DBUILD_SHARED_LIBS=ON -Dtiff-cxx=OFF -Dtiff-tools=OFF -Dtiff-tests=OFF \
+    -Dtiff-contrib=OFF -Dtiff-docs=OFF -Dtiff-opengl=OFF -Djpeg=ON -Djpeg-prefer-standard=ON -Dold-jpeg=ON -Djpeg12=OFF -Dzlib=ON \
+    -Dpixarlog=OFF -Dlzma=OFF -Dzstd=OFF -Dwebp=OFF -Djbig=OFF -Dlerc=OFF -Dlibdeflate=OFF \
+    -DJPEG_INCLUDE_DIR="$PREFIX/include" -DJPEG_LIBRARY="$PREFIX/lib/libjpeg.a" -DJPEG_LIBRARY_RELEASE="$PREFIX/lib/libjpeg.a" \
+    -DCMAKE_C_FLAGS="-I$PREFIX/include" -DCMAKE_SHARED_LINKER_FLAGS="$tiff_link_flags"
+cmake --build "$WORK/tiff-build" -j "$jobs"
+
 cp -L "$(find "$WORK/heif-build" -name "$lib" | head -1)" "$OUT/$lib"
-if [[ $(uname) == Darwin ]]; then strip -x "$OUT/$lib"; else strip --strip-unneeded "$OUT/$lib"; fi
+cp -L "$(find "$WORK/tiff-build" -name "$tiff" | head -1)" "$OUT/$tiff"
+for f in "$OUT/$lib" "$OUT/$tiff"; do
+    if [[ $(uname) == Darwin ]]; then strip -x "$f"; else strip --strip-unneeded "$f"; fi
+done
 cp "$WORK/libheif-$LIBHEIF_VERSION/COPYING" "$OUT/licenses/libheif.txt"
 cp "$WORK/libde265-$LIBDE265_VERSION/COPYING" "$OUT/licenses/libde265.txt"
 cp "$WORK/dav1d-$DAV1D_VERSION/COPYING" "$OUT/licenses/dav1d.txt"
+cp "$WORK/tiff-$LIBTIFF_VERSION/LICENSE.md" "$OUT/licenses/libtiff.txt"
+cp "$WORK/libjpeg-turbo-$LIBJPEG_TURBO_VERSION/LICENSE.md" "$OUT/licenses/libjpeg-turbo.txt"
 cat > "$OUT/licenses/README.txt" <<NOTICE
 $(basename "$OUT/$lib") is libheif $LIBHEIF_VERSION (LGPL-3.0) with libde265 $LIBDE265_VERSION (LGPL-3.0) and
 dav1d $DAV1D_VERSION (BSD-2-Clause) linked in, built unmodified by build/native in the KanTuNext repository.
@@ -70,5 +97,10 @@ You may replace it with your own build of the same libraries. Sources:
   https://github.com/strukturag/libheif/archive/refs/tags/v$LIBHEIF_VERSION.tar.gz
   https://github.com/strukturag/libde265/archive/refs/tags/v$LIBDE265_VERSION.tar.gz
   https://code.videolan.org/videolan/dav1d/-/archive/$DAV1D_VERSION/dav1d-$DAV1D_VERSION.tar.gz
+
+$tiff is libtiff $LIBTIFF_VERSION (libtiff license) with libjpeg-turbo $LIBJPEG_TURBO_VERSION (IJG/BSD-3-Clause)
+linked in. Sources:
+  https://download.osgeo.org/libtiff/tiff-$LIBTIFF_VERSION.tar.gz
+  https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/$LIBJPEG_TURBO_VERSION.tar.gz
 NOTICE
 ls -l "$OUT"

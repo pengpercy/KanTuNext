@@ -3,8 +3,8 @@ using SkiaSharp;
 namespace KanTuNext.Desktop.Services;
 
 /// <summary>
-/// Decoders for formats Skia can't read: the operating system's, plus the bundled libheif for HEIC/AVIF. Results
-/// are upright (EXIF applied).
+/// Decoders for formats Skia can't read: the operating system's, plus the bundled libheif (HEIC/AVIF) and, on
+/// Linux, libtiff. Results are upright (EXIF applied).
 /// </summary>
 internal static class PlatformDecoder
 {
@@ -12,9 +12,10 @@ internal static class PlatformDecoder
     public static SKBitmap? Decode(string path, int maxEdge)
     {
         // macOS: ImageIO first (hardware HEVC, HDR); packages don't carry libheif there
-        if (OperatingSystem.IsMacOS()) return MacImageDecoder.Decode(path, maxEdge) ?? HeifDecoder.Decode(path, maxEdge);
+        if (OperatingSystem.IsMacOS())
+            return MacImageDecoder.Decode(path, maxEdge) ?? HeifDecoder.Decode(path, maxEdge) ?? TiffDecoder.Decode(path, maxEdge);
         // Windows and Linux: libheif first, so HEIC/AVIF open without the store's codec extensions
-        if (HeifDecoder.Decode(path, maxEdge) is { } heif) return heif;
+        if ((HeifDecoder.Decode(path, maxEdge) ?? TiffDecoder.Decode(path, maxEdge)) is { } bundled) return bundled;
 #if WINDOWS && !WIN7
         if (OperatingSystem.IsWindows()) return WindowsImageDecoder.Decode(path, maxEdge);
 #endif
