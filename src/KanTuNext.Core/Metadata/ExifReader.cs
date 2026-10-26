@@ -8,7 +8,7 @@ namespace KanTuNext.Core.Metadata;
 public readonly record struct ExifInfo(DateTime? Taken, int Orientation);
 
 /// <summary>
-/// Minimal EXIF reader for JPEG (APP1 "Exif") and bare TIFF headers: capture time (DateTimeOriginal, then
+/// Minimal EXIF reader for JPEG (APP1 "Exif"), bare TIFF headers and ISO-BMFF images: capture time (DateTimeOriginal, then
 /// DateTime) and orientation. Anything malformed yields an empty result instead of throwing.
 /// </summary>
 public static class ExifReader
@@ -22,31 +22,48 @@ public static class ExifReader
     /// </summary>
     public static ExifInfo Read(string path)
     {
-        // Only JPEG and TIFF carry EXIF where this reader looks; don't even open anything else
+        // Only JPEG, TIFF and ISO-BMFF carry EXIF where the scanner looks; don't even open anything else
         if (!HasExifContainer(path)) return default;
+        return ReadTiff(path) is { } tiff ? ParseTiff(tiff) : default;
+    }
+
+    /// <summary>
+    /// The raw TIFF block of the file's EXIF (JPEG APP1, bare TIFF, HEIC/AVIF/JPEG XL, PNG eXIf, WebP EXIF), or null.
+    /// Used by the photo details panel, which decodes every tag; see <see cref="ExifDetails"/>.
+    /// </summary>
+    public static byte[]? ReadTiff(string path)
+    {
         try
         {
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 1, FileOptions.None);
-            Span<byte> head = stackalloc byte[4];
-            if (stream.Read(head) < 4) return default;
+            Span<byte> head = stackalloc byte[12];
+            var read = stream.Read(head);
+            if (read < 4) return null;
             if (head[0] == 0xFF && head[1] == 0xD8) return ReadJpeg(stream);
             if (IsIsoBmff(path))
             {
                 stream.Position = 0;
-                return IsoBmffExif.Read(stream) is { } tiff ? ParseTiff(tiff) : default;
+                return IsoBmffExif.Read(stream);
             }
             if ((head[0] == 'I' && head[1] == 'I') || (head[0] == 'M' && head[1] == 'M'))
             {
                 var buffer = new byte[(int)Math.Min(MaxHeader, stream.Length)];
                 stream.Position = 0;
                 stream.ReadExactly(buffer);
-                return ParseTiff(buffer);
+                return buffer;
             }
-            return default;
+            if (read >= 8 && head[..8].SequenceEqual(MetadataChunks.PngSignature)) return MetadataChunks.FindPng(stream, "eXIf"u8);
+            if (read >= 12 && head[..4].SequenceEqual("RIFF"u8) && head[8..12].SequenceEqual("WEBP"u8))
+            {
+                // Some writers keep JPEG's "Exif\0\0" prefix inside the chunk
+                var exif = MetadataChunks.FindWebP(stream, "EXIF"u8);
+                return exif is not null && exif.AsSpan().StartsWith("Exif\0\0"u8) ? exif[6..] : exif;
+            }
+            return null;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or EndOfStreamException or ArgumentOutOfRangeException)
         {
-            return default;
+            return null;
         }
     }
 
@@ -57,7 +74,7 @@ public static class ExifReader
     private static bool IsIsoBmff(string path) =>
         Path.GetExtension(path).ToLowerInvariant() is ".heic" or ".heif" or ".hif" or ".avif" or ".jxl";
 
-    private static ExifInfo ReadJpeg(FileStream stream)
+    private static byte[]? ReadJpeg(FileStream stream)
     {
         Span<byte> header = stackalloc byte[4];
         long pos = 2;
@@ -74,11 +91,11 @@ public static class ExifReader
             {
                 var segment = new byte[length - 2];
                 stream.ReadExactly(segment);
-                if (segment.AsSpan().StartsWith("Exif\0\0"u8)) return ParseTiff(segment.AsSpan(6));
+                if (segment.AsSpan().StartsWith("Exif\0\0"u8)) return segment[6..];
             }
             pos += 2 + length;
         }
-        return default;
+        return null;
     }
 
     public static ExifInfo Parse(ReadOnlySpan<byte> data)

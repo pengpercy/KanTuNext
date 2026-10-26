@@ -48,3 +48,15 @@ public class OcrTextTests
     public void CollapsesSpacesInsideAJoinedLine() =>
         Assert.Equal("支持 HEIC、AVIF 等格式", OcrText.CollapseCjkSpaces("支 持 HEIC 、 AVIF 等 格 式"));
 }
+
+public class OcrReconcileTests
+{
+    [Theory]
+    [InlineData("J文字后可以选F", "识别文字后可以选中复制", "文字后可以选")]
+    [InlineData("quick brown", "The quick brown fox jumps", "quick brown")]
+    [InlineData("lquick brownf", "The quick brown fox jumps", "quick brown")]
+    [InlineData("文字 后可以", "识别文字后可以选中复制", "文字 后可以")]
+    [InlineData("完全不同", "识别文字后可以选中复制", "完全不同")]
+    public void DropsStrayEdgeCharacters(string recognized, string line, string expected) =>
+        Assert.Equal(expected, KanTuNext.Core.Ocr.OcrText.Reconcile(recognized, line));
+}

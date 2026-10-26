@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using KanTuNext.Core.Ocr;
 
 namespace KanTuNext.Desktop.Views;
 
@@ -11,28 +12,36 @@ namespace KanTuNext.Desktop.Views;
 /// Zoom is "screen points per image pixel": 1 is 1:1 the way macOS Preview means it (a 600px photo is 600pt
 /// wide, so it isn't shrunk to half on a Retina display).
 /// In fit mode the image follows the view size; any manual zoom or pan leaves fit mode.
-/// Moving to another photo cross-fades from the old one, with a short slide in the direction of travel.
+/// Moving to another photo slides the old one out and the new one in, in the direction of travel, fading through
+/// the background so the two are never stacked half-transparent.
+/// Over recognized text (outlined or not), dragging selects text, Live Text style, instead of panning.
 /// </summary>
 public sealed class ZoomImage : Control
 {
     public static readonly StyledProperty<Bitmap?> SourceProperty =
         AvaloniaProperty.Register<ZoomImage, Bitmap?>(nameof(Source));
 
-    /// <summary>Regions to highlight (recognized text lines), normalized to the upright image.</summary>
-    public static readonly StyledProperty<IReadOnlyList<KanTuNext.Core.Ocr.OcrRect>?> HighlightsProperty =
-        AvaloniaProperty.Register<ZoomImage, IReadOnlyList<KanTuNext.Core.Ocr.OcrRect>?>(nameof(Highlights));
+    /// <summary>Recognized text lines to outline and make selectable, bounds normalized to the upright image.</summary>
+    public static readonly StyledProperty<IReadOnlyList<OcrLine>?> TextLinesProperty =
+        AvaloniaProperty.Register<ZoomImage, IReadOnlyList<OcrLine>?>(nameof(TextLines));
 
     private static readonly IBrush HighlightFill = new SolidColorBrush(Color.FromArgb(0x33, 0x2E, 0x9B, 0xFF));
     private static readonly IPen HighlightPen = new Pen(new SolidColorBrush(Color.FromArgb(0xCC, 0x2E, 0x9B, 0xFF)), 1);
+    private static readonly IBrush SelectionFill = new SolidColorBrush(Color.FromArgb(0x8C, 0x2E, 0x9B, 0xFF));
 
     private const double MinZoom = 0.02, MaxZoom = 32;
-    private static readonly TimeSpan TransitionLength = TimeSpan.FromMilliseconds(220);
+    private const double TransitionMs = 300;
+    // Longest step one frame may advance the transition: a frame that took long (the first draw of a large
+    // photo uploads it to the GPU) pauses the motion instead of skipping half of it
+    private const double MaxFrameStepMs = 34;
 
     // The photo being left, drawn as it was on screen while the new one comes in
     private Bitmap? _outgoing;
     private Matrix _outgoingTransform;
     private int _outgoingDirection;
-    private long _transitionStart;
+    private double _transitionMs;
+    private TimeSpan? _lastFrame;
+    private bool _warmedUp;
 
     private double _zoom = 1;          // DIPs (points) per image pixel
     private Vector _offset;            // image centre relative to view centre, in DIPs
@@ -42,7 +51,7 @@ public sealed class ZoomImage : Control
 
     static ZoomImage()
     {
-        AffectsRender<ZoomImage>(SourceProperty, HighlightsProperty);
+        AffectsRender<ZoomImage>(SourceProperty, TextLinesProperty, ShowTextOutlinesProperty);
         FocusableProperty.OverrideDefaultValue<ZoomImage>(true);
     }
 
@@ -55,10 +64,20 @@ public sealed class ZoomImage : Control
 
     public Bitmap? Source { get => GetValue(SourceProperty); set => SetValue(SourceProperty, value); }
 
-    public IReadOnlyList<KanTuNext.Core.Ocr.OcrRect>? Highlights
+    /// <summary>Outline the recognized lines (识别文字 on); without it the text is selectable but not drawn.</summary>
+    public static readonly StyledProperty<bool> ShowTextOutlinesProperty =
+        AvaloniaProperty.Register<ZoomImage, bool>(nameof(ShowTextOutlines));
+
+    public bool ShowTextOutlines
     {
-        get => GetValue(HighlightsProperty);
-        set => SetValue(HighlightsProperty, value);
+        get => GetValue(ShowTextOutlinesProperty);
+        set => SetValue(ShowTextOutlinesProperty, value);
+    }
+
+    public IReadOnlyList<OcrLine>? TextLines
+    {
+        get => GetValue(TextLinesProperty);
+        set => SetValue(TextLinesProperty, value);
     }
 
     /// <summary>Raised when zoom, fit mode or rotation changes (toolbar state, zoom readout).</summary>
@@ -112,6 +131,7 @@ public sealed class ZoomImage : Control
             }
             else InvalidateVisual(); // next animation frame
         }
+        if (change.Property == TextLinesProperty) SetReadingOrder(change.NewValue as IReadOnlyList<OcrLine>);
         if (change.Property == BoundsProperty && _fit) { _zoom = FitZoom; InvalidateVisual(); }
     }
 
@@ -121,16 +141,29 @@ public sealed class ZoomImage : Control
         _outgoing = leaving;
         _outgoingTransform = TransformFor(leaving);
         _outgoingDirection = TransitionDirection;
-        _transitionStart = Environment.TickCount64;
+        _transitionMs = 0;
+        _lastFrame = null;
+        _warmedUp = false;
         TopLevel.GetTopLevel(this)?.RequestAnimationFrame(OnTransitionFrame);
+        InvalidateVisual();
     }
 
-    private void OnTransitionFrame(TimeSpan _)
+    private void OnTransitionFrame(TimeSpan now)
     {
         if (_outgoing is null) return;
-        if (Environment.TickCount64 - _transitionStart >= TransitionLength.TotalMilliseconds) _outgoing = null;
+        // The clock starts once the new photo has been drawn (warmed up) at least once
+        if (_warmedUp && _lastFrame is { } last) _transitionMs += Math.Clamp((now - last).TotalMilliseconds, 0, MaxFrameStepMs);
+        if (_warmedUp) _lastFrame = now;
+        if (_transitionMs >= TransitionMs) _outgoing = null;
         else TopLevel.GetTopLevel(this)?.RequestAnimationFrame(OnTransitionFrame);
         InvalidateVisual();
+    }
+
+    private static double EaseOut(double t) => 1 - Math.Pow(1 - Math.Clamp(t, 0, 1), 3);
+    private static double EaseInOut(double t)
+    {
+        t = Math.Clamp(t, 0, 1);
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.Pow(-2 * t + 2, 3) / 2;
     }
 
     /// <summary>Back to fit mode and upright, as when a new photo is shown.</summary>
@@ -212,19 +245,45 @@ public sealed class ZoomImage : Control
 
         if (_outgoing is { } outgoing)
         {
-            // Ease-out over the transition: the old photo fades and drifts away, the new one settles in
-            var linear = Math.Clamp((Environment.TickCount64 - _transitionStart) / TransitionLength.TotalMilliseconds, 0, 1);
-            var t = 1 - Math.Pow(1 - linear, 3);
-            var slide = Math.Min(Bounds.Width * 0.05, 48) * _outgoingDirection;
-            // The outgoing bitmap stays valid: whoever releases a photo's bitmaps does so a second later
-            using (context.PushTransform(_outgoingTransform * Matrix.CreateTranslation(-slide * t, 0)))
-            using (context.PushOpacity(1 - t))
-            using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = BitmapInterpolationMode.HighQuality }))
-                context.DrawImage(outgoing, new Rect(0, 0, outgoing.PixelSize.Width, outgoing.PixelSize.Height));
-            using (context.PushTransform(transform * Matrix.CreateTranslation(slide * (1 - t), 0)))
-            using (context.PushOpacity(t))
-            using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = mode }))
-                context.DrawImage(bitmap, new Rect(0, 0, w, h));
+            // Bilinear while moving: mipmapped filtering of a large photo would stall the first frames
+            var moving = new RenderOptions { BitmapInterpolationMode = BitmapInterpolationMode.LowQuality };
+            var t = _transitionMs / TransitionMs;
+            var slide = Math.Min(Bounds.Width * 0.08, 72) * _outgoingDirection;
+            // The old photo leaves over the first half, the new one arrives over the last 60%: a brief fade
+            // through the background instead of two translucent photos on top of each other
+            var leave = EaseInOut(t / 0.5);
+            var arrive = EaseOut((t - 0.4) / 0.6);
+            if (leave < 1)
+            {
+                // The outgoing bitmap stays valid: whoever releases a photo's bitmaps does so a second later
+                var scale = 1 - 0.03 * leave;
+                var centre = Bounds.Center;
+                using (context.PushTransform(_outgoingTransform * Matrix.CreateTranslation(-centre.X, -centre.Y)
+                           * Matrix.CreateScale(scale, scale) * Matrix.CreateTranslation(centre.X - slide * leave, centre.Y)))
+                using (context.PushOpacity(1 - leave))
+                using (context.PushRenderOptions(moving))
+                    context.DrawImage(outgoing, new Rect(0, 0, outgoing.PixelSize.Width, outgoing.PixelSize.Height));
+            }
+            if (!_warmedUp)
+            {
+                // Draw the new photo once, practically invisible, while the old one is still fully shown: its
+                // upload happens now, not in the middle of the motion
+                using (context.PushOpacity(0.004))
+                using (context.PushRenderOptions(moving))
+                    context.DrawImage(bitmap, new Rect(0, 0, w, h), new Rect(0, 0, 1, 1));
+                _warmedUp = true;
+                return;
+            }
+            if (arrive > 0)
+            {
+                var scale = 0.97 + 0.03 * arrive;
+                var centre = Bounds.Center;
+                using (context.PushTransform(transform * Matrix.CreateTranslation(-centre.X, -centre.Y)
+                           * Matrix.CreateScale(scale, scale) * Matrix.CreateTranslation(centre.X + slide * (1 - arrive), centre.Y)))
+                using (context.PushOpacity(arrive))
+                using (context.PushRenderOptions(moving))
+                    context.DrawImage(bitmap, new Rect(0, 0, w, h));
+            }
             return;
         }
 
@@ -232,14 +291,26 @@ public sealed class ZoomImage : Control
         using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = mode }))
             context.DrawImage(bitmap, new Rect(0, 0, w, h));
 
-        if (Highlights is { Count: > 0 } boxes)
+        if (_lines.Length > 0)
         {
             // Same transform as the image, so boxes follow zoom, pan and rotation; the pen is in screen units
             using (context.PushTransform(transform))
             {
                 var pen = new Pen(HighlightPen.Brush, 1 / dipPerPixel);
-                foreach (var b in boxes)
+                foreach (var line in ShowTextOutlines ? _lines : [])
+                {
+                    var b = line.Line.Bounds;
                     context.DrawRectangle(HighlightFill, pen, new Rect(b.X * w, b.Y * h, b.Width * w, b.Height * h), 2 / dipPerPixel, 2 / dipPerPixel);
+                }
+                for (var i = 0; i < _lines.Length; i++)
+                {
+                    if (SelectedRange(i) is not var (from, to) || from >= to) continue;
+                    var line = _lines[i];
+                    var b = line.Line.Bounds;
+                    var left = b.X + b.Width * line.Stops[from];
+                    var right = b.X + b.Width * line.Stops[to];
+                    context.DrawRectangle(SelectionFill, null, new Rect(left * w, b.Y * h, (right - left) * w, b.Height * h), 2 / dipPerPixel, 2 / dipPerPixel);
+                }
             }
         }
     }
@@ -260,6 +331,28 @@ public sealed class ZoomImage : Control
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+        // Right button opens the context menu; only the left one pans and double-clicks
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        if (HitText(e.GetPosition(this), false) is { } caret)
+        {
+            if (e.ClickCount == 2)
+            {
+                // Double-click selects the line
+                _anchor = new Caret(caret.Line, 0);
+                _focus = new Caret(caret.Line, _lines[caret.Line].Stops.Length - 1);
+            }
+            else
+            {
+                _anchor = _focus = caret;
+                _selecting = true;
+                e.Pointer.Capture(this);
+            }
+            SelectionChanged?.Invoke();
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+        if (HasSelection) ClearSelection();
         if (e.ClickCount == 2)
         {
             if (_fit) SetZoom(1, e.GetPosition(this));
@@ -273,6 +366,26 @@ public sealed class ZoomImage : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        if (_selecting)
+        {
+            if (HitText(e.GetPosition(this), true) is { } caret && caret != _focus)
+            {
+                _focus = caret;
+                SelectionChanged?.Invoke();
+                InvalidateVisual();
+            }
+            return;
+        }
+        if (_dragFrom is null)
+        {
+            // An I-beam over recognized text says it can be selected
+            var overText = _lines.Length > 0 && HitText(e.GetPosition(this), false) is not null;
+            if (overText != _overText)
+            {
+                _overText = overText;
+                Cursor = overText ? new Cursor(StandardCursorType.Ibeam) : Cursor.Default;
+            }
+        }
         if (_dragFrom is not { } from) return;
         var now = e.GetPosition(this);
         _offset += now - from;
@@ -284,7 +397,171 @@ public sealed class ZoomImage : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        _selecting = false;
         _dragFrom = null;
         e.Pointer.Capture(null);
+    }
+
+    // ---- Text selection over recognized lines
+
+    /// <summary>A recognized line in reading order: its row (lines on one row join with a space) and the
+    /// estimated left edge of each character as a fraction of the line's width (one more for the end).</summary>
+    private sealed record ReadingLine(OcrLine Line, int Row, double[] Stops);
+
+    public sealed record SelectionPiece(int Row, string Text, OcrRect? Region, string LineText);
+
+    /// <summary>A position between characters: line index in reading order, character index.</summary>
+    private readonly record struct Caret(int Line, int Index);
+
+    private ReadingLine[] _lines = [];
+    private Caret? _anchor, _focus;
+    private bool _selecting, _overText;
+
+    /// <summary>Raised when the text selection on the image changes.</summary>
+    public event Action? SelectionChanged;
+
+    public bool HasSelection => SelectedText.Length > 0;
+
+    public bool HasText => _lines.Length > 0;
+
+    /// <summary>The selected text, rows separated by newlines (character positions inside a line estimated).</summary>
+    public string SelectedText => JoinPieces(SelectionPieces.Select(p => (p.Row, p.Text)));
+
+    /// <summary>Selected text per line in reading order. <see cref="SelectionPiece.Region"/> is set where only
+    /// part of a line is selected: that part of the photo, for recognizing it again precisely.</summary>
+    public IReadOnlyList<SelectionPiece> SelectionPieces
+    {
+        get
+        {
+            var pieces = new List<SelectionPiece>();
+            for (var i = 0; i < _lines.Length; i++)
+            {
+                if (SelectedRange(i) is not var (from, to) || from >= to) continue;
+                var line = _lines[i];
+                var text = line.Line.Text.Substring(from, to - from);
+                OcrRect? region = null;
+                if (from > 0 || to < line.Line.Text.Length)
+                {
+                    var b = line.Line.Bounds;
+                    // A fifth of an average character either side, so an estimate that's slightly off still takes
+                    // in whole glyphs (slivers of neighbours are dropped by OcrText.Reconcile); a fifth of the
+                    // line height above and below
+                    var padX = b.Width / Math.Max(1, line.Line.Text.Length) * 0.2;
+                    var padY = b.Height * 0.2;
+                    var left = Math.Max(0, b.X + b.Width * line.Stops[from] - padX);
+                    var right = Math.Min(1, b.X + b.Width * line.Stops[to] + padX);
+                    var top = Math.Max(0, b.Y - padY);
+                    var bottom = Math.Min(1, b.Y + b.Height + padY);
+                    region = new OcrRect(left, top, right - left, bottom - top);
+                }
+                pieces.Add(new SelectionPiece(line.Row, text, region, line.Line.Text));
+            }
+            return pieces;
+        }
+    }
+
+    /// <summary>Joins line texts: a space between lines on one row, a newline between rows.</summary>
+    public static string JoinPieces(IEnumerable<(int Row, string Text)> pieces)
+    {
+        var text = new System.Text.StringBuilder();
+        var row = -1;
+        foreach (var (r, piece) in pieces)
+        {
+            if (row >= 0) text.Append(r == row ? " " : "\n");
+            row = r;
+            text.Append(piece.Trim());
+        }
+        return text.ToString().Trim();
+    }
+
+    public void SelectAll()
+    {
+        if (_lines.Length == 0) return;
+        _anchor = new Caret(0, 0);
+        _focus = new Caret(_lines.Length - 1, _lines[^1].Stops.Length - 1);
+        SelectionChanged?.Invoke();
+        InvalidateVisual();
+    }
+
+    public void ClearSelection()
+    {
+        _anchor = _focus = null;
+        SelectionChanged?.Invoke();
+        InvalidateVisual();
+    }
+
+    private void SetReadingOrder(IReadOnlyList<OcrLine>? lines)
+    {
+        _anchor = _focus = null;
+        _lines = lines is null ? []
+            : OcrLayout.Rows(lines).SelectMany((row, r) => row.Select(line => new ReadingLine(line, r, CharacterStops(line.Text)))).ToArray();
+        if (_lines.Length == 0 && _overText)
+        {
+            _overText = false;
+            Cursor = Cursor.Default;
+        }
+        SelectionChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Engines only give line boxes, so character positions are estimated from typical advance widths: CJK and
+    /// full-width characters are square, Latin letters and digits a little over half, spaces and thin marks less.
+    /// </summary>
+    private static double[] CharacterStops(string text)
+    {
+        static double Advance(char c) =>
+            OcrText.IsCjk(c) ? 1 : c == ' ' ? 0.3 : c is 'i' or 'l' or 'j' or 't' or 'f' or 'I' or '.' or ',' or ':' or ';' or '\'' or '!' or '|' ? 0.3
+            : c is 'm' or 'w' or 'M' or 'W' ? 0.85 : char.IsUpper(c) ? 0.65 : 0.55;
+        var stops = new double[text.Length + 1];
+        for (var i = 0; i < text.Length; i++) stops[i + 1] = stops[i] + Advance(text[i]);
+        var total = stops[^1];
+        if (total > 0) for (var i = 1; i < stops.Length; i++) stops[i] /= total;
+        return stops;
+    }
+
+    /// <summary>Selected characters of line <paramref name="i"/>, as [from, to), or null.</summary>
+    private (int, int)? SelectedRange(int i)
+    {
+        if (_anchor is not { } a || _focus is not { } f) return null;
+        var (start, end) = a.Line < f.Line || a.Line == f.Line && a.Index <= f.Index ? (a, f) : (f, a);
+        if (i < start.Line || i > end.Line) return null;
+        var length = _lines[i].Stops.Length - 1;
+        return (i == start.Line ? start.Index : 0, i == end.Line ? end.Index : length);
+    }
+
+    /// <summary>
+    /// The caret under a view point. Off the text, <paramref name="nearest"/> picks the closest line (so a drag
+    /// can run past the ends); otherwise null.
+    /// </summary>
+    private Caret? HitText(Point point, bool nearest)
+    {
+        if (_lines.Length == 0 || Source is not { } bitmap) return null;
+        if (!TransformFor(bitmap).TryInvert(out var inverse)) return null;
+        var p = point.Transform(inverse);
+        var x = p.X / bitmap.PixelSize.Width;
+        var y = p.Y / bitmap.PixelSize.Height;
+        var best = -1;
+        var bestDistance = double.MaxValue;
+        for (var i = 0; i < _lines.Length; i++)
+        {
+            var b = _lines[i].Line.Bounds;
+            // Slack of a few percent of the line height, so thin lines are easy to hit
+            var pad = b.Height * 0.15;
+            var dx = Math.Max(0, Math.Max(b.X - pad - x, x - b.Right - pad));
+            var dy = Math.Max(0, Math.Max(b.Y - pad - y, y - (b.Y + b.Height) - pad));
+            var distance = dy * 4 + dx; // a line on the same row beats a nearer one above or below
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                best = i;
+            }
+        }
+        if (best < 0 || !nearest && bestDistance > 0) return null;
+        var line = _lines[best];
+        var fraction = line.Line.Bounds.Width > 0 ? (x - line.Line.Bounds.X) / line.Line.Bounds.Width : 0;
+        var index = 0;
+        for (var i = 1; i < line.Stops.Length; i++)
+            if (fraction >= (line.Stops[i - 1] + line.Stops[i]) / 2) index = i;
+        return new Caret(best, index);
     }
 }

@@ -5,6 +5,8 @@
   <ResourceDictionary.ThemeDictionaries>
     <ResourceDictionary x:Key="Light">
       <SolidColorBrush x:Key="SidebarBrush" Color="#ECECEE" />
+      <!-- Over the window's blurred backdrop (macOS vibrancy, Windows Mica/acrylic) -->
+      <SolidColorBrush x:Key="SidebarTranslucentBrush" Color="#59F2F2F4" />
       <SolidColorBrush x:Key="SidebarSelectedBrush" Color="#1A000000" />
       <SolidColorBrush x:Key="SidebarHoverBrush" Color="#0D000000" />
       <SolidColorBrush x:Key="SidebarHeaderBrush" Color="#8E8E93" />
@@ -33,6 +35,7 @@
     </ResourceDictionary>
     <ResourceDictionary x:Key="Dark">
       <SolidColorBrush x:Key="SidebarBrush" Color="#2C2C2E" />
+      <SolidColorBrush x:Key="SidebarTranslucentBrush" Color="#40202024" />
       <SolidColorBrush x:Key="SidebarSelectedBrush" Color="#1AFFFFFF" />
       <SolidColorBrush x:Key="SidebarHoverBrush" Color="#0DFFFFFF" />
       <SolidColorBrush x:Key="SidebarHeaderBrush" Color="#98989D" />

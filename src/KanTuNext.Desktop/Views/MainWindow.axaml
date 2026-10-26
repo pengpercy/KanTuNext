@@ -7,11 +7,36 @@
         x:Class="KanTuNext.Desktop.Views.MainWindow" x:DataType="vm:MainViewModel"
         Title="看图" Icon="/Assets/kantunext.png"
         Width="1200" Height="650" MinWidth="820" MinHeight="480" WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource PageBrush}"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaTitleBarHeightHint="52"
         WindowDecorations="Full"
         FontSize="13">
+  <Window.Styles>
+    <!-- Opaque unless the platform gives the window a blurred backdrop: then only the sidebar lets it through -->
+    <Style Selector="views|MainWindow">
+      <Setter Property="Background" Value="{DynamicResource PageBrush}" />
+    </Style>
+    <Style Selector="views|MainWindow.translucent">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="views|MainWindow.translucent Border#Sidebar">
+      <Setter Property="Background" Value="{DynamicResource SidebarTranslucentBrush}" />
+    </Style>
+    <!-- Sidebar edge: a hairline with a wider invisible grip -->
+    <Style Selector="GridSplitter#SidebarSplitter">
+      <Setter Property="Width" Value="7" />
+      <Setter Property="Margin" Value="0,0,-3,0" />
+      <Setter Property="HorizontalAlignment" Value="Right" />
+      <Setter Property="Cursor" Value="SizeWestEast" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="Transparent">
+            <Border Width="1" HorizontalAlignment="Center" Background="{DynamicResource SidebarBorderBrush}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+  </Window.Styles>
   <!-- macOS menu bar, after the application menu in App.axaml -->
   <NativeMenu.Menu>
     <NativeMenu>
@@ -29,6 +54,7 @@
           <NativeMenuItem Header="大" Gesture="Cmd+D3" ToggleType="Radio" IsChecked="{Binding IsLarge}" Click="OnSizeMenu" />
           <NativeMenuItem Header="最大" Gesture="Cmd+D4" ToggleType="Radio" IsChecked="{Binding IsLargest}" Click="OnSizeMenu" />
           <NativeMenuItemSeparator />
+          <NativeMenuItem Header="{Binding SidebarMenuText}" Gesture="Cmd+Ctrl+S" Click="OnToggleSidebarMenu" />
           <NativeMenuItem Header="找图" Gesture="Cmd+F" Click="OnFindMenu" />
           <NativeMenuItem Header="显示简介" Gesture="Cmd+I" IsEnabled="{Binding HasSelection}" Click="OnInfoMenu" />
         </NativeMenu>
@@ -59,12 +85,15 @@
       </NativeMenuItem>
     </NativeMenu>
   </NativeMenu.Menu>
-  <!-- Measured on the original 2.5.2: 1200×650 window, ~270pt sidebar, 32pt rows, 52pt toolbar -->
-  <Grid ColumnDefinitions="270,*" chrome:WindowDecorationProperties.ElementRole="User">
+  <!-- 1200×650 window, 32pt rows, 52pt toolbar; the sidebar defaults to Finder's width and can be dragged -->
+  <Grid x:Name="Layout" chrome:WindowDecorationProperties.ElementRole="User">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="210" MinWidth="160" MaxWidth="400" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
 
     <!-- Sidebar -->
-    <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}"
-            BorderBrush="{DynamicResource SidebarBorderBrush}" BorderThickness="0,0,1,0">
+    <Border x:Name="Sidebar" Grid.Column="0" Background="{DynamicResource SidebarBrush}">
       <DockPanel>
         <!-- Traffic lights / drag area above the list -->
         <Border DockPanel.Dock="Top" Height="44" Background="Transparent"
@@ -117,11 +146,14 @@
     </Border>
 
     <!-- Content -->
-    <Grid Grid.Column="1" RowDefinitions="52,*">
+    <Grid Grid.Column="1" RowDefinitions="52,*" Background="{DynamicResource PageBrush}">
       <Grid x:Name="Toolbar" Grid.Row="0" ColumnDefinitions="*,Auto,*" Margin="24,0,24,0" Background="Transparent"
             chrome:WindowDecorationProperties.ElementRole="TitleBar">
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" HorizontalAlignment="Left"
                     chrome:WindowDecorationProperties.ElementRole="User">
+          <Button Classes="toolIcon" ToolTip.Tip="{Binding SidebarMenuText}" Click="OnToggleSidebar">
+            <PathIcon Data="{StaticResource Icon.dock-left}" Width="18" Height="18" />
+          </Button>
           <Button Classes="toolIcon" IsEnabled="False" ToolTip.Tip="返回">
             <PathIcon Data="{StaticResource Icon.chevron-left}" Width="20" Height="20" />
           </Button>
@@ -209,5 +241,9 @@
                    Foreground="{DynamicResource SubTextBrush}" />
       </StackPanel>
     </Grid>
+
+    <!-- Drag to resize the sidebar; on top of the content so its grip overlaps both sides of the edge -->
+    <GridSplitter x:Name="SidebarSplitter" Grid.Column="0" ResizeDirection="Columns" ResizeBehavior="CurrentAndNext"
+                  DragCompleted="OnSidebarResized" />
   </Grid>
 </Window>

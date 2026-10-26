@@ -207,6 +207,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool CheckUpdatesAutomatically => _settings.CheckUpdatesAutomatically;
 
+    public bool LiveText => _settings.LiveText;
+
     public string? SkippedVersion => _settings.SkippedVersion;
 
     /// <summary>Main window size and maximized state, restored on launch and saved when it closes.</summary>
@@ -219,6 +221,33 @@ public sealed partial class MainViewModel : ObservableObject
             SaveSettings();
         }
     }
+
+    /// <summary>Sidebar width, saved once a splitter drag ends.</summary>
+    public double SidebarWidth
+    {
+        get => _settings.SidebarWidth;
+        set
+        {
+            if (Math.Abs(_settings.SidebarWidth - value) < 0.5) return;
+            _settings.SidebarWidth = value;
+            SaveSettings();
+        }
+    }
+
+    public bool SidebarVisible
+    {
+        get => _settings.SidebarVisible;
+        set
+        {
+            if (_settings.SidebarVisible == value) return;
+            _settings.SidebarVisible = value;
+            SaveSettings();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SidebarMenuText));
+        }
+    }
+
+    public string SidebarMenuText => SidebarVisible ? "隐藏侧边栏" : "显示侧边栏";
 
     private void SaveSettings()
     {

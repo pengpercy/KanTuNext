@@ -22,11 +22,30 @@ public partial class MainWindow : Window
         {
             if (DataContext is not MainViewModel vm || file.Kind != KanTuNext.Core.Library.MediaKind.Image) return;
             var images = vm.Groups?.SelectMany(g => g.Items).Where(f => f.Kind == KanTuNext.Core.Library.MediaKind.Image).ToList() ?? [];
-            ViewerWindow.Open(this, images, images.IndexOf(file));
+            ViewerWindow.Open(this, images, images.IndexOf(file), vm.LiveText);
         };
         // Keep the toolbar's right-hand icons clear of the drawn min/max/close buttons
         if (WindowChrome.HasClientCaptionButtons)
             Toolbar.Margin = new Thickness(Toolbar.Margin.Left, 0, WindowChrome.CaptionButtonsWidth + 12, 0);
+
+        // A blurred backdrop behind the sidebar where the platform has one (macOS vibrancy, Windows 11 Mica,
+        // Windows 10 acrylic); the window stays opaque, sidebar included, wherever it doesn't
+        if (OperatingSystem.IsMacOS() || OperatingSystem.IsWindows())
+            TransparencyLevelHint = [WindowTransparencyLevel.Mica, WindowTransparencyLevel.AcrylicBlur, WindowTransparencyLevel.Blur];
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == ActualTransparencyLevelProperty) UpdateTranslucency();
+        };
+        UpdateTranslucency();
+        DataContextChanged += (_, _) =>
+        {
+            if (DataContext is not MainViewModel vm) return;
+            ApplySidebar(vm);
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(MainViewModel.SidebarVisible)) ApplySidebar(vm);
+            };
+        };
 
         if (OperatingSystem.IsMacOS())
         {
@@ -126,6 +145,48 @@ public partial class MainWindow : Window
         menu.Open(Grid);
     }
 
+    private ColumnDefinition SidebarColumn => Layout.ColumnDefinitions[0];
+
+    private void UpdateTranslucency() =>
+        Classes.Set("translucent", ActualTransparencyLevel != WindowTransparencyLevel.None
+                                   && ActualTransparencyLevel != WindowTransparencyLevel.Transparent);
+
+    /// <summary>Shows or collapses the sidebar at its saved width.</summary>
+    private void ApplySidebar(MainViewModel vm)
+    {
+        var visible = vm.SidebarVisible;
+        Sidebar.IsVisible = SidebarSplitter.IsVisible = visible;
+        SidebarColumn.MinWidth = visible ? 160 : 0;
+        SidebarColumn.Width = new GridLength(visible ? Math.Clamp(vm.SidebarWidth, 160, 400) : 0);
+        // Without the sidebar the traffic lights sit over the toolbar: start it after them
+        var left = !visible && OperatingSystem.IsMacOS() ? 84 : 24;
+        Toolbar.Margin = new Thickness(left, 0, Toolbar.Margin.Right, 0);
+    }
+
+    private void ToggleSidebar()
+    {
+        if (DataContext is MainViewModel vm) vm.SidebarVisible = !vm.SidebarVisible;
+    }
+
+    private void OnToggleSidebar(object? sender, RoutedEventArgs e) => ToggleSidebar();
+
+    private void OnSidebarResized(object? sender, Avalonia.Input.VectorEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && Sidebar.IsVisible) vm.SidebarWidth = Math.Round(SidebarColumn.ActualWidth);
+    }
+
+    protected override void OnKeyDown(Avalonia.Input.KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        // macOS has ⌃⌘S in the 显示 menu; elsewhere Ctrl+B, as in editors with a side bar
+        if (!e.Handled && !OperatingSystem.IsMacOS() && e.Key == Avalonia.Input.Key.B
+            && e.KeyModifiers == Avalonia.Input.KeyModifiers.Control)
+        {
+            ToggleSidebar();
+            e.Handled = true;
+        }
+    }
+
     private SettingsWindow? _settings;
 
     /// <summary>One settings window; a second request brings it forward.</summary>
@@ -166,6 +227,7 @@ public partial class MainWindow : Window
         if (Model is not { } vm || sender is not NativeMenuItem item) return;
         vm.Size = item.Header switch { "中" => ThumbnailSize.Medium, "大" => ThumbnailSize.Large, "最大" => ThumbnailSize.Largest, _ => ThumbnailSize.Small };
     }
+    private void OnToggleSidebarMenu(object? sender, EventArgs e) => ToggleSidebar();
     private void OnFindMenu(object? sender, EventArgs e)
     {
         SearchBox.Focus();

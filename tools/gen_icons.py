@@ -18,9 +18,14 @@ ICONS = [
     # toolbar
     "chevron-left", "magnify", "export-variant", "information-outline", "cog-outline",
     # viewer toolbar
-    "menu-left-outline", "menu-right-outline", "thumb-up-outline", "emoticon-neutral-outline",
+    "thumb-up-outline", "emoticon-neutral-outline",
     "thumb-down-outline", "magnify-plus-outline", "magnify-minus-outline", "fit-to-screen-outline",
     "rotate-left", "dots-grid", "menu-left", "text-recognition",
+    # sidebar toggle
+    "dock-left",
+    # viewer context menu and info panel
+    "rotate-right", "content-copy", "folder-search-outline", "open-in-app", "close",
+    "camera-iris", "map-marker-outline", "check",
 ]
 
 def path_of(name):

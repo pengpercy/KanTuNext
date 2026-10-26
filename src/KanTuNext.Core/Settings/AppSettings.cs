@@ -21,6 +21,15 @@ public sealed class AppSettings
     /// <summary>The main window's size and maximized state when the app last quit (it always opens centred).</summary>
     public WindowPlacement? MainWindow { get; set; }
 
+    /// <summary>Sidebar width in DIPs, as last dragged.</summary>
+    public double SidebarWidth { get; set; } = 210;
+
+    /// <summary>Whether the sidebar is shown (toolbar button / 显示 → 隐藏侧边栏).</summary>
+    public bool SidebarVisible { get; set; } = true;
+
+    /// <summary>Recognize text in each photo the viewer shows, so it can be selected and copied right on the photo.</summary>
+    public bool LiveText { get; set; } = true;
+
     /// <summary>Look for a new version on GitHub a few seconds after launch (the only network access).</summary>
     public bool CheckUpdatesAutomatically { get; set; } = true;
 

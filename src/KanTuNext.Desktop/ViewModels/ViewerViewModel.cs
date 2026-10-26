@@ -67,8 +67,49 @@ public sealed partial class ViewerViewModel : ObservableObject
         FullResolutionShown?.Invoke();
     }
 
-    // ---- OCR
+    /// <summary>The photo at full resolution (for 复制图片), decoding it if only the screen-sized one is loaded.</summary>
+    public async Task<Bitmap?> FullBitmapAsync()
+    {
+        if (Current is not { } item) return null;
+        if (_loaded is { IsReduced: false } loaded) return loaded.First;
+        return (await Loader.LoadAsync(item.Path, ImageLoader.FullEdge))?.First;
+    }
+
+    // ---- 图片信息 panel: stays open from photo to photo, refreshed for each
+
+    [ObservableProperty]
+    public partial bool ShowInfo { get; private set; }
+
+    [ObservableProperty]
+    public partial PhotoDetails? Details { get; private set; }
+
+    private int _detailsVersion;
+
+    public void ToggleInfo()
+    {
+        ShowInfo = !ShowInfo;
+        if (ShowInfo) _ = LoadDetailsAsync();
+    }
+
+    private async Task LoadDetailsAsync()
+    {
+        var version = ++_detailsVersion;
+        if (Current is not { } item) return;
+        // A full-resolution decode knows the size of formats whose header Skia can't read (HEIC, RAW…)
+        (int, int)? decoded = _loaded is { IsReduced: false, First: { } bitmap } ? (bitmap.PixelSize.Width, bitmap.PixelSize.Height) : null;
+        var details = await Task.Run(() => PhotoDetails.Read(item, decoded));
+        if (version == _detailsVersion) Details = details;
+    }
+
+    // ---- OCR. With live text on, every photo shown is recognized in the background so its text can be selected
+    // right on the photo; 识别文字 (ShowOcr) adds the outlines and the side panel, recognizing if needed.
     public bool OcrAvailable => OcrEngines.IsAvailable;
+
+    /// <summary>Recognize each photo shown, not only when 识别文字 is on (a setting).</summary>
+    public bool LiveText { get; init; }
+
+    /// <summary>A short pause before recognizing in the background, so paging quickly doesn't queue work.</summary>
+    private static readonly TimeSpan LiveTextDelay = TimeSpan.FromMilliseconds(350);
 
     [ObservableProperty]
     public partial bool ShowOcr { get; private set; }
@@ -78,40 +119,47 @@ public sealed partial class ViewerViewModel : ObservableObject
     public partial bool IsRecognizing { get; private set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(OcrStatus), nameof(HasOcrText))]
+    [NotifyPropertyChangedFor(nameof(OcrStatus), nameof(HasOcrText), nameof(OcrText), nameof(OcrLines))]
     public partial OcrResult? Ocr { get; private set; }
 
     public string OcrText => Ocr?.Text ?? "";
     public bool HasOcrText => OcrText.Length > 0;
-    public IReadOnlyList<OcrRect>? OcrBoxes => ShowOcr ? Ocr?.Lines.Select(l => l.Bounds).ToArray() : null;
+    /// <summary>Selectable on the photo whenever known; outlined only while 识别文字 is on.</summary>
+    public IReadOnlyList<OcrLine>? OcrLines => Ocr?.Lines;
     public string OcrStatus => IsRecognizing ? "正在识别…" : Ocr is { Lines.Count: 0 } ? "没有识别到文字" : "";
 
     private CancellationTokenSource? _ocr;
+    // Results by file, so going back to a photo doesn't recognize it again
+    private readonly Dictionary<string, OcrResult> _recognized = [];
 
     public void ToggleOcr()
     {
         ShowOcr = !ShowOcr;
-        if (ShowOcr) _ = RecognizeAsync();
-        else _ocr?.Cancel();
-        OnPropertyChanged(nameof(OcrBoxes));
+        if (ShowOcr && Ocr is null && !IsRecognizing) _ = RecognizeAsync(TimeSpan.Zero);
     }
 
-    private async Task RecognizeAsync()
+    /// <summary>Clears the previous photo's text and starts on this one's (cached, or recognized if wanted).</summary>
+    private void StartRecognition()
+    {
+        _ocr?.Cancel();
+        IsRecognizing = false;
+        Ocr = Current is { } item && _recognized.TryGetValue(item.Path, out var known) ? known : null;
+        if (Ocr is null && OcrAvailable && (ShowOcr || LiveText)) _ = RecognizeAsync(ShowOcr ? TimeSpan.Zero : LiveTextDelay);
+    }
+
+    private async Task RecognizeAsync(TimeSpan delay)
     {
         _ocr?.Cancel();
         var cts = _ocr = new CancellationTokenSource();
-        Ocr = null;
-        OnPropertyChanged(nameof(OcrText));
-        OnPropertyChanged(nameof(OcrBoxes));
         if (Current is not { } item) return;
         IsRecognizing = true;
         try
         {
+            if (delay > TimeSpan.Zero) await Task.Delay(delay, cts.Token);
             var result = await OcrEngines.RecognizeAsync(item.Path, item.Orientation, cts.Token);
             if (cts.IsCancellationRequested) return;
+            _recognized[item.Path] = result;
             Ocr = result;
-            OnPropertyChanged(nameof(OcrText));
-            OnPropertyChanged(nameof(OcrBoxes));
         }
         catch (OperationCanceledException)
         {
@@ -230,6 +278,10 @@ public sealed partial class ViewerViewModel : ObservableObject
         OnPropertyChanged(nameof(Position));
         OnPropertyChanged(nameof(IsLivePhoto));
         var version = ++_loadVersion;
+        // The previous photo's text must not be selectable on this one while it loads
+        _ocr?.Cancel();
+        Ocr = null;
+        IsRecognizing = false;
         if (Current is not { } item) return;
         Loader.Pin(item.Path);
         var task = Loader.LoadAsync(item.Path, ScreenEdge);
@@ -243,7 +295,8 @@ public sealed partial class ViewerViewModel : ObservableObject
         Image = loaded?.First;
         IsLoading = false;
         if (loaded is { IsAnimated: true }) StartAnimation();
-        if (ShowOcr) _ = RecognizeAsync();
+        StartRecognition();
+        if (ShowInfo) _ = LoadDetailsAsync();
         if (CanGoForward) Loader.Prefetch(_items[Index + 1].Path, ScreenEdge);
         if (CanGoBack) Loader.Prefetch(_items[Index - 1].Path, ScreenEdge);
     }
@@ -268,6 +321,7 @@ public sealed partial class ViewerViewModel : ObservableObject
     /// <summary>Stops the frame timers when the window closes.</summary>
     public void Close()
     {
+        _ocr?.Cancel();
         StopAnimation();
         StopLive();
     }

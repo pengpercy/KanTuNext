@@ -3,6 +3,7 @@
         xmlns:vm="clr-namespace:KanTuNext.Desktop.ViewModels"
         xmlns:views="clr-namespace:KanTuNext.Desktop.Views"
         xmlns:chrome="clr-namespace:Avalonia.Controls.Chrome;assembly=Avalonia.Controls"
+        xmlns:services="clr-namespace:KanTuNext.Desktop.Services"
         x:Class="KanTuNext.Desktop.Views.ViewerWindow" x:DataType="vm:ViewerViewModel"
         Title="{Binding Title, FallbackValue=看图}" Icon="/Assets/kantunext.png"
         Width="900" Height="600" MinWidth="420" MinHeight="300"
@@ -12,20 +13,24 @@
         WindowDecorations="Full"
         RequestedThemeVariant="Dark">
   <Window.Styles>
+    <!-- 18px icons keep MDI's 2-unit strokes near 1.5px: lighter than the glyphs at their 24px design size -->
     <Style Selector="Button.viewerTool">
-      <Setter Property="Width" Value="44" />
-      <Setter Property="Height" Value="60" />
+      <Setter Property="Width" Value="40" />
+      <Setter Property="Height" Value="40" />
       <Setter Property="Padding" Value="0" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Foreground" Value="#E6FFFFFF" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Foreground" Value="#CCFFFFFF" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
+      <!-- Tips (names and shortcuts) only once the pointer rests on a button, not while passing over the dock -->
+      <Setter Property="ToolTip.ShowDelay" Value="1000" />
     </Style>
-    <Style Selector="Button.viewerTool:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#1FFFFFFF" />
-      <Setter Property="Foreground" Value="#FFFFFFFF" />
+    <!-- No hover or press highlight: the dock stays calm under the pointer -->
+    <Style Selector="Button.viewerTool:pointerover /template/ ContentPresenter, Button.viewerTool:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="#CCFFFFFF" />
     </Style>
     <Style Selector="Button.viewerTool:disabled /template/ ContentPresenter">
       <Setter Property="Background" Value="Transparent" />
@@ -35,8 +40,64 @@
     <Style Selector="Button.viewerTool.on">
       <Setter Property="Foreground" Value="#FF2E9BFF" />
     </Style>
-    <Style Selector="Button.viewerTool.on:pointerover /template/ ContentPresenter">
+    <Style Selector="Button.viewerTool.on:pointerover /template/ ContentPresenter, Button.viewerTool.on:pressed /template/ ContentPresenter">
+      <Setter Property="Foreground" Value="#FF2E9BFF" />
+    </Style>
+    <!-- 图片信息 panel: small borderless buttons in its header -->
+    <Style Selector="Button.panelTool">
+      <Setter Property="Width" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="ToolTip.ShowDelay" Value="1000" />
+      <Setter Property="Foreground" Value="#B3FFFFFF" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.panelTool:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#1FFFFFFF" />
+      <Setter Property="Foreground" Value="#FFFFFFFF" />
+    </Style>
+    <Style Selector="Button.mapLink">
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="Background" Value="#1A2E9BFF" />
       <Setter Property="Foreground" Value="#FF5CB2FF" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.mapLink:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#332E9BFF" />
+      <Setter Property="Foreground" Value="#FF8CC8FF" />
+    </Style>
+    <Style Selector="Border#InfoPanel">
+      <Setter Property="Transitions">
+        <Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.18" /></Transitions>
+      </Setter>
+    </Style>
+    <!-- Right-click menu: compact rows, smaller type and icons than Fluent's touch-friendly defaults -->
+    <Style Selector="ContextMenu">
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="ContextMenu MenuItem">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="CornerRadius" Value="5" />
+    </Style>
+    <Style Selector="ContextMenu Separator">
+      <Setter Property="Margin" Value="8,3" />
+    </Style>
+    <Style Selector="Border.toolDivider">
+      <Setter Property="Width" Value="1" />
+      <Setter Property="Height" Value="18" />
+      <Setter Property="Margin" Value="5,0" />
+      <Setter Property="Background" Value="#1FFFFFFF" />
+      <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Border#ToolbarDock">
       <Setter Property="Transitions">
@@ -70,6 +131,9 @@
           <NativeMenuItem Header="上一张" Gesture="Cmd+Left" IsEnabled="{Binding CanGoBack}" Click="OnPreviousMenu" />
           <NativeMenuItem Header="下一张" Gesture="Cmd+Right" IsEnabled="{Binding CanGoForward}" Click="OnNextMenu" />
           <NativeMenuItemSeparator />
+          <NativeMenuItem Header="图片信息" Gesture="Cmd+I" Click="OnInfoMenu" />
+          <NativeMenuItem Header="复制图片" Click="OnCopyImageMenu" />
+          <NativeMenuItemSeparator />
           <NativeMenuItem Header="识别文字" Gesture="Cmd+T" IsEnabled="{Binding OcrAvailable}" Click="OnOcrMenu" />
           <NativeMenuItem Header="播放实况" IsEnabled="{Binding IsLivePhoto}" Click="OnPlayLiveMenu" />
           <NativeMenuItemSeparator />
@@ -91,7 +155,7 @@
 
   <Grid ColumnDefinitions="*,Auto" chrome:WindowDecorationProperties.ElementRole="User">
   <Grid Grid.Column="0">
-    <views:ZoomImage x:Name="Viewer" Source="{Binding Image}" Highlights="{Binding OcrBoxes}" />
+    <views:ZoomImage x:Name="Viewer" Source="{Binding Image}" TextLines="{Binding OcrLines}" ShowTextOutlines="{Binding ShowOcr}" />
 
     <TextBlock IsVisible="{Binding ShowError}" Text="无法打开这张图片" Foreground="#99FFFFFF" FontSize="14"
                HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -115,49 +179,152 @@
       </StackPanel>
     </Border>
 
+    <!-- 图片信息: a translucent card over the photo, refreshed as photos change -->
+    <Border x:Name="InfoPanel" IsVisible="{Binding ShowInfo}" HorizontalAlignment="Right" VerticalAlignment="Top"
+            Margin="0,44,14,100" Width="320" CornerRadius="10" ClipToBounds="True"
+            Background="#C7141416" BorderBrush="#1FFFFFFF" BorderThickness="1" BoxShadow="0 14 44 0 #80000000">
+      <!-- How far the panel was dragged from its place at the top right -->
+      <Border.RenderTransform>
+        <TranslateTransform />
+      </Border.RenderTransform>
+      <DockPanel>
+        <!-- Drag the header to move the panel off whatever it covers -->
+        <Border x:Name="InfoHeader" DockPanel.Dock="Top" Padding="16,12,6,10" Background="Transparent">
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,6,0">
+              <TextBlock Text="{Binding Details.Name, FallbackValue=''}" FontSize="14" FontWeight="SemiBold" Foreground="White"
+                         TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding Details.Summary, FallbackValue='正在读取…'}" FontSize="11.5" Foreground="#99FFFFFF" />
+            </StackPanel>
+            <!-- Tucked into the corner, clear of the title -->
+            <Button Grid.Column="1" Classes="panelTool" VerticalAlignment="Top" Margin="0,-6,0,0" ToolTip.Tip="复制全部信息" Click="OnCopyDetails">
+              <PathIcon Data="{StaticResource Icon.content-copy}" Width="12" Height="12" />
+            </Button>
+            <Button Grid.Column="2" Classes="panelTool" VerticalAlignment="Top" Margin="0,-6,0,0" ToolTip.Tip="关闭（I）" Click="OnInfo">
+              <PathIcon Data="{StaticResource Icon.close}" Width="12" Height="12" />
+            </Button>
+          </Grid>
+        </Border>
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="12,0,12,14" Spacing="14">
+            <!-- Camera and exposure at a glance -->
+            <Border IsVisible="{Binding Details.HasCamera, FallbackValue=False}" CornerRadius="7" Padding="12"
+                    Background="#12FFFFFF">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <Border Width="32" Height="32" CornerRadius="6" Background="#262E9BFF" VerticalAlignment="Top">
+                    <PathIcon Data="{StaticResource Icon.camera-iris}" Width="17" Height="17" Foreground="#FF5CB2FF" />
+                  </Border>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Text="{Binding Details.Camera, TargetNullValue='未知相机', FallbackValue=''}" FontSize="13"
+                               FontWeight="SemiBold" Foreground="White" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Details.Lens, FallbackValue=''}" FontSize="11.5" Foreground="#99FFFFFF" TextWrapping="Wrap"
+                               IsVisible="{Binding Details.Lens, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}" />
+                  </StackPanel>
+                </Grid>
+                <ItemsControl ItemsSource="{Binding Details.Exposure, FallbackValue={x:Null}}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="6" /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                      <Border CornerRadius="4" Padding="7,2" Background="#1AFFFFFF">
+                        <TextBlock Text="{Binding}" FontSize="12" FontWeight="Medium" Foreground="#F2FFFFFF" />
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding Details.Sections, FallbackValue={x:Null}}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Spacing="14" /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="services:DetailSection">
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="SemiBold" Foreground="#80FFFFFF" Margin="6,0,0,0" />
+                    <Border CornerRadius="7" Background="#0DFFFFFF" Padding="12,4">
+                      <ItemsControl ItemsSource="{Binding Rows}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="services:InfoRow">
+                            <Grid ColumnDefinitions="78,*" ColumnSpacing="10" Margin="0,5">
+                              <TextBlock Text="{Binding Label}" FontSize="12" Foreground="#8CFFFFFF" />
+                              <SelectableTextBlock Grid.Column="1" Text="{Binding Value}" FontSize="12" TextWrapping="Wrap"
+                                                   Foreground="#F2FFFFFF" SelectionBrush="#662E9BFF" />
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </Border>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Button Classes="mapLink" Click="OnOpenMap"
+                    IsVisible="{Binding Details.MapUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <PathIcon Data="{StaticResource Icon.map-marker-outline}" Width="14" Height="14" />
+                <TextBlock Text="在地图中查看拍摄位置" FontSize="12" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
     <!-- Floating toolbar, after the original: shown while the pointer moves, hidden after a short pause -->
     <Border x:Name="ToolbarDock" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,20"
-            Background="#D91C1C1E" CornerRadius="8" Padding="12,0">
+            Background="#D91C1C1E" CornerRadius="12" Padding="6"
+            BorderBrush="#14FFFFFF" BorderThickness="1" BoxShadow="0 8 28 0 #59000000">
       <StackPanel Orientation="Horizontal">
         <Button Classes="viewerTool" ToolTip.Tip="上一张（←）" Click="OnPrevious" IsEnabled="{Binding CanGoBack}">
-          <PathIcon Data="{StaticResource Icon.menu-left-outline}" Width="30" Height="30" />
+          <PathIcon Data="{StaticResource Icon.chevron-left}" Width="20" Height="20" />
         </Button>
         <Button Classes="viewerTool" ToolTip.Tip="下一张（→）" Click="OnNext" IsEnabled="{Binding CanGoForward}">
-          <PathIcon Data="{StaticResource Icon.menu-right-outline}" Width="30" Height="30" />
+          <PathIcon Data="{StaticResource Icon.chevron-right}" Width="20" Height="20" />
         </Button>
+        <Border Classes="toolDivider" />
         <Button x:Name="TagGood" Classes="viewerTool" ToolTip.Tip="标记为「好」" Click="OnTag" Tag="Good">
-          <PathIcon Data="{StaticResource Icon.thumb-up-outline}" Width="22" Height="22" />
+          <PathIcon Data="{StaticResource Icon.thumb-up-outline}" Width="18" Height="18" />
         </Button>
         <Button x:Name="TagNeutral" Classes="viewerTool" ToolTip.Tip="标记为「中」" Click="OnTag" Tag="Neutral">
-          <PathIcon Data="{StaticResource Icon.emoticon-neutral-outline}" Width="22" Height="22" />
+          <PathIcon Data="{StaticResource Icon.emoticon-neutral-outline}" Width="18" Height="18" />
         </Button>
         <Button x:Name="TagBad" Classes="viewerTool" ToolTip.Tip="标记为「差」" Click="OnTag" Tag="Bad">
-          <PathIcon Data="{StaticResource Icon.thumb-down-outline}" Width="22" Height="22" />
+          <PathIcon Data="{StaticResource Icon.thumb-down-outline}" Width="18" Height="18" />
         </Button>
+        <Border Classes="toolDivider" />
         <Button Classes="viewerTool" ToolTip.Tip="放大（+）" Click="OnZoomIn">
-          <PathIcon Data="{StaticResource Icon.magnify-plus-outline}" Width="22" Height="22" />
+          <PathIcon Data="{StaticResource Icon.magnify-plus-outline}" Width="18" Height="18" />
         </Button>
         <Button Classes="viewerTool" ToolTip.Tip="缩小（-）" Click="OnZoomOut">
-          <PathIcon Data="{StaticResource Icon.magnify-minus-outline}" Width="22" Height="22" />
+          <PathIcon Data="{StaticResource Icon.magnify-minus-outline}" Width="18" Height="18" />
         </Button>
         <Button Classes="viewerTool" ToolTip.Tip="实际大小（1）" Click="OnActualSize">
-          <TextBlock Text="1:1" FontSize="16" FontWeight="Light" />
+          <TextBlock Text="1:1" FontSize="13" />
         </Button>
         <Button Classes="viewerTool" ToolTip.Tip="适应窗口（0）" Click="OnFit">
-          <PathIcon Data="{StaticResource Icon.fit-to-screen-outline}" Width="22" Height="22" />
+          <PathIcon Data="{StaticResource Icon.fit-to-screen-outline}" Width="18" Height="18" />
         </Button>
         <Button Classes="viewerTool" ToolTip.Tip="旋转（R）" Click="OnRotate">
-          <PathIcon Data="{StaticResource Icon.rotate-left}" Width="22" Height="22" />
+          <PathIcon Data="{StaticResource Icon.rotate-left}" Width="18" Height="18" />
+        </Button>
+        <Border Classes="toolDivider" />
+        <Button Classes="viewerTool" ToolTip.Tip="图片信息（I）" Click="OnInfo" Classes.on="{Binding ShowInfo}">
+          <PathIcon Data="{StaticResource Icon.information-outline}" Width="18" Height="18" />
         </Button>
         <Button x:Name="OcrButton" Classes="viewerTool" ToolTip.Tip="识别文字（T）" Click="OnOcr"
                 IsVisible="{Binding OcrAvailable}" Classes.on="{Binding ShowOcr}">
-          <PathIcon Data="{StaticResource Icon.text-recognition}" Width="22" Height="22" />
+          <PathIcon Data="{StaticResource Icon.text-recognition}" Width="18" Height="18" />
         </Button>
         <Button Classes="viewerTool" ToolTip.Tip="移到废纸篓（Delete）" Click="OnDelete">
-          <PathIcon Data="{StaticResource Icon.trash-can-outline}" Width="22" Height="22" />
+          <PathIcon Data="{StaticResource Icon.trash-can-outline}" Width="18" Height="18" />
         </Button>
         <Button Classes="viewerTool" ToolTip.Tip="返回缩略图（Esc）" Click="OnClose">
-          <PathIcon Data="{StaticResource Icon.dots-grid}" Width="22" Height="22" />
+          <PathIcon Data="{StaticResource Icon.dots-grid}" Width="18" Height="18" />
         </Button>
       </StackPanel>
     </Border>
@@ -166,19 +333,26 @@
     <!-- Recognized text, in reading order; selectable, with copy-all -->
     <Border Grid.Column="1" Width="300" IsVisible="{Binding ShowOcr}" Background="#1C1C1E"
             BorderBrush="#33FFFFFF" BorderThickness="1,0,0,0">
-      <DockPanel Margin="16,44,12,16">
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
-          <TextBlock Text="识别文字" FontSize="14" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
-          <Button Grid.Column="1" Content="复制全部" Click="OnCopyText" IsEnabled="{Binding HasOcrText}"
-                  FontSize="12" Padding="10,4" />
-        </Grid>
-        <TextBlock DockPanel.Dock="Top" Text="{Binding OcrStatus}" IsVisible="{Binding OcrStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                   Foreground="#99FFFFFF" FontSize="12" Margin="0,0,0,8" />
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-          <SelectableTextBlock Text="{Binding OcrText}" TextWrapping="Wrap" FontSize="13" LineHeight="20"
-                               Foreground="#E6FFFFFF" SelectionBrush="#662E9BFF" />
-        </ScrollViewer>
-      </DockPanel>
+      <Panel>
+        <DockPanel Margin="16,44,12,16">
+          <Grid x:Name="OcrHeader" DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+            <TextBlock Text="识别文字" FontSize="14" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="复制全部" Click="OnCopyText" IsEnabled="{Binding HasOcrText}"
+                    FontSize="12" Padding="10,4" VerticalAlignment="Center" />
+          </Grid>
+          <TextBlock DockPanel.Dock="Top" Text="{Binding OcrStatus}" IsVisible="{Binding OcrStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                     Foreground="#99FFFFFF" FontSize="12" Margin="0,0,0,8" />
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <SelectableTextBlock Text="{Binding OcrText}" TextWrapping="Wrap" FontSize="13" LineHeight="20"
+                                 Foreground="#E6FFFFFF" SelectionBrush="#662E9BFF" />
+          </ScrollViewer>
+        </DockPanel>
+        <!-- In the panel's top-right corner, centred in the 36px title strip (below drawn caption buttons) -->
+        <Button x:Name="OcrClose" Classes="panelTool" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"
+                ToolTip.Tip="关闭（T）" Click="OnOcr">
+          <PathIcon Data="{StaticResource Icon.close}" Width="12" Height="12" />
+        </Button>
+      </Panel>
     </Border>
   </Grid>
 </Window>

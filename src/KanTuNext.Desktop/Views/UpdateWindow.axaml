@@ -5,6 +5,16 @@
         Title="软件更新" Icon="/Assets/kantunext.png"
         SizeToContent="WidthAndHeight" CanResize="False"
         WindowStartupLocation="CenterOwner" Background="{DynamicResource PageBrush}" FontSize="13">
+  <Window.Styles>
+    <!-- Dialog buttons as macOS sizes them: never narrower than a standard push button, even for 「好」 -->
+    <Style Selector="Button">
+      <Setter Property="MinWidth" Value="88" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Padding" Value="16,4" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+  </Window.Styles>
   <Panel Margin="24,20,24,22">
     <!-- A new version: notes and choices -->
     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18" Width="520" IsVisible="{Binding IsPrompt}">

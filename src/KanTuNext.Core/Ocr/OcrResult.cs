@@ -88,6 +88,30 @@ public static class OcrText
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Cleans up the text of part of a line recognized on its own: a crop's edges can catch slivers of the
+    /// neighbouring characters, read as stray letters ("J文字后可以F"). Drops up to two characters from either end
+    /// until what's left appears in the whole line's text (spaces between CJK characters ignored); keeps the
+    /// recognized text if nothing does.
+    /// </summary>
+    public static string Reconcile(string recognized, string line)
+    {
+        recognized = recognized.Trim();
+        var whole = CollapseCjkSpaces(line);
+        string? best = null;
+        var bestCut = int.MaxValue;
+        for (var lead = 0; lead <= 2; lead++)
+        for (var trail = 0; trail <= 2; trail++)
+        {
+            if (lead + trail >= recognized.Length || lead + trail >= bestCut) continue;
+            var candidate = recognized[lead..^trail].Trim();
+            if (candidate.Length == 0 || !whole.Contains(CollapseCjkSpaces(candidate), StringComparison.Ordinal)) continue;
+            best = candidate;
+            bestCut = lead + trail;
+        }
+        return best ?? recognized;
+    }
+
     /// <summary>Removes the spaces an engine put between CJK characters inside an already-joined line.</summary>
     public static string CollapseCjkSpaces(string line) => JoinWords(line.Split(' ', StringSplitOptions.RemoveEmptyEntries));
 

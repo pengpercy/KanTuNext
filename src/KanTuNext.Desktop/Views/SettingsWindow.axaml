@@ -15,6 +15,11 @@
       </StackPanel>
     </StackPanel>
 
+    <StackPanel Spacing="8" IsVisible="{Binding OcrAvailable}">
+      <TextBlock Text="看图" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+      <CheckBox Content="自动识别图片中的文字，可直接在图片上选中复制" IsChecked="{Binding LiveText}" />
+    </StackPanel>
+
     <StackPanel Spacing="8">
       <TextBlock Text="缓存" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
       <Grid ColumnDefinitions="*,Auto">

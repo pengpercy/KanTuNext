@@ -41,6 +41,18 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
+    public bool LiveText
+    {
+        get => _settings.LiveText;
+        set
+        {
+            _settings.LiveText = value;
+            _save();
+        }
+    }
+
+    public bool OcrAvailable => KanTuNext.Desktop.Services.Ocr.OcrEngines.IsAvailable;
+
     public bool IsSystemTheme { get => _settings.Theme == AppTheme.System; set { if (value) SetTheme(AppTheme.System); } }
     public bool IsLightTheme { get => _settings.Theme == AppTheme.Light; set { if (value) SetTheme(AppTheme.Light); } }
     public bool IsDarkTheme { get => _settings.Theme == AppTheme.Dark; set { if (value) SetTheme(AppTheme.Dark); } }
