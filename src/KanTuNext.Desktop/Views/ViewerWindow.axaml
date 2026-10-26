@@ -183,13 +183,12 @@
     <Border x:Name="InfoPanel" IsVisible="{Binding ShowInfo}" HorizontalAlignment="Right" VerticalAlignment="Top"
             Margin="0,44,14,100" Width="320" CornerRadius="10" ClipToBounds="True"
             Background="#C7141416" BorderBrush="#1FFFFFFF" BorderThickness="1" BoxShadow="0 14 44 0 #80000000">
-      <!-- How far the panel was dragged from its place at the top right -->
+      <!-- How far the panel was dragged from its place at the top right (drag any blank part of it) -->
       <Border.RenderTransform>
         <TranslateTransform />
       </Border.RenderTransform>
       <DockPanel>
-        <!-- Drag the header to move the panel off whatever it covers -->
-        <Border x:Name="InfoHeader" DockPanel.Dock="Top" Padding="16,12,6,10" Background="Transparent">
+        <Border DockPanel.Dock="Top" Padding="16,12,6,10" Background="Transparent">
           <Grid ColumnDefinitions="*,Auto,Auto">
             <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,6,0">
               <TextBlock Text="{Binding Details.Name, FallbackValue=''}" FontSize="14" FontWeight="SemiBold" Foreground="White"
@@ -297,6 +296,9 @@
           <PathIcon Data="{StaticResource Icon.thumb-down-outline}" Width="18" Height="18" />
         </Button>
         <Border Classes="toolDivider" />
+        <Button x:Name="HandButton" Classes="viewerTool" ToolTip.Tip="抓手工具（H）：拖动只移动图片，不选文字" Click="OnHandTool">
+          <PathIcon Data="{StaticResource Icon.hand-back-right-outline}" Width="18" Height="18" />
+        </Button>
         <Button Classes="viewerTool" ToolTip.Tip="放大（+）" Click="OnZoomIn">
           <PathIcon Data="{StaticResource Icon.magnify-plus-outline}" Width="18" Height="18" />
         </Button>

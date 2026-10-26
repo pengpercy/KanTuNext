@@ -74,6 +74,16 @@ public sealed class ZoomImage : Control
         set => SetValue(ShowTextOutlinesProperty, value);
     }
 
+    /// <summary>Hand tool (H): dragging always pans, even over text, which isn't selectable meanwhile.</summary>
+    public static readonly StyledProperty<bool> HandToolProperty =
+        AvaloniaProperty.Register<ZoomImage, bool>(nameof(HandTool));
+
+    public bool HandTool
+    {
+        get => GetValue(HandToolProperty);
+        set => SetValue(HandToolProperty, value);
+    }
+
     public IReadOnlyList<OcrLine>? TextLines
     {
         get => GetValue(TextLinesProperty);
@@ -132,6 +142,11 @@ public sealed class ZoomImage : Control
             else InvalidateVisual(); // next animation frame
         }
         if (change.Property == TextLinesProperty) SetReadingOrder(change.NewValue as IReadOnlyList<OcrLine>);
+        if (change.Property == HandToolProperty)
+        {
+            _overText = false;
+            Cursor = HandTool ? OpenHandCursor.Value : Cursor.Default;
+        }
         if (change.Property == BoundsProperty && _fit) { _zoom = FitZoom; InvalidateVisual(); }
     }
 
@@ -333,7 +348,7 @@ public sealed class ZoomImage : Control
         base.OnPointerPressed(e);
         // Right button opens the context menu; only the left one pans and double-clicks
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-        if (HitText(e.GetPosition(this), false) is { } caret)
+        if (!HandTool && HitText(e.GetPosition(this), false) is { } caret)
         {
             if (e.ClickCount == 2)
             {
@@ -360,6 +375,7 @@ public sealed class ZoomImage : Control
             return;
         }
         _dragFrom = e.GetPosition(this);
+        if (HandTool) Cursor = ClosedHandCursor.Value; // the hand grips the photo
         e.Pointer.Capture(this);
     }
 
@@ -376,7 +392,7 @@ public sealed class ZoomImage : Control
             }
             return;
         }
-        if (_dragFrom is null)
+        if (_dragFrom is null && !HandTool)
         {
             // An I-beam over recognized text says it can be selected
             var overText = _lines.Length > 0 && HitText(e.GetPosition(this), false) is not null;
@@ -399,7 +415,33 @@ public sealed class ZoomImage : Control
         base.OnPointerReleased(e);
         _selecting = false;
         _dragFrom = null;
+        if (HandTool) Cursor = OpenHandCursor.Value;
         e.Pointer.Capture(null);
+    }
+
+    /// <summary>
+    /// MDI's hand-back-right with the fingers curled to knuckles and the thumb tucked in: the grabbing hand, drawn
+    /// to match the open one (MDI has no closed hand).
+    /// </summary>
+    private const string ClosedHand = "M13 24C9.74 24 6.81 22 5.6 19L4.5 16.2C4.2 15.4 4.75 14.6 5.6 14.65L6.1 14.7C6.6 14.75 7 15.05 7.2 15.5L7.45 16H8V9.75C8 9.06 8.56 8.5 9.25 8.5S10.5 9.06 10.5 9.75V10.5H11.5V8.75C11.5 8.06 12.06 7.5 12.75 7.5S14 8.06 14 8.75V10.5H15V9.25C15 8.56 15.56 8 16.25 8C16.94 8 17.5 8.56 17.5 9.25V10.5H18.5V10.25C18.5 9.56 19.06 9 19.75 9S21 9.56 21 10.25V16C21 20.42 17.42 24 13 24Z";
+
+    // The hand tool's cursors: open while hovering, closed while dragging
+    private static readonly Lazy<Cursor> OpenHandCursor = new(() =>
+        HandCursorFrom(Application.Current?.FindResource("Icon.hand-back-right") as Geometry, StandardCursorType.Hand));
+    private static readonly Lazy<Cursor> ClosedHandCursor = new(() =>
+        HandCursorFrom(StreamGeometry.Parse(ClosedHand), StandardCursorType.DragMove));
+
+    /// <summary>A hand glyph as a cursor about the size of the system arrow: white with a soft grey edge, hot spot in
+    /// the middle.</summary>
+    private static Cursor HandCursorFrom(Geometry? glyph, StandardCursorType fallback)
+    {
+        if (glyph is null) return new Cursor(fallback);
+        const int size = 20;
+        var bitmap = new RenderTargetBitmap(new PixelSize(size, size));
+        using (var context = bitmap.CreateDrawingContext())
+        using (context.PushTransform(Matrix.CreateTranslation(1, 1) * Matrix.CreateScale(size / 26.0, size / 26.0)))
+            context.DrawGeometry(Brushes.White, new Pen(new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), 1.4, lineJoin: PenLineJoin.Round), glyph);
+        return new Cursor(bitmap, new PixelPoint(size / 2, size / 2));
     }
 
     // ---- Text selection over recognized lines

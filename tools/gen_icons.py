@@ -21,11 +21,11 @@ ICONS = [
     "thumb-up-outline", "emoticon-neutral-outline",
     "thumb-down-outline", "magnify-plus-outline", "magnify-minus-outline", "fit-to-screen-outline",
     "rotate-left", "dots-grid", "menu-left", "text-recognition",
-    # sidebar toggle
-    "dock-left",
+    # sidebar toggle: after the traffic lights (macOS-style), hamburger where the caption buttons are on the right
+    "dock-left", "menu",
     # viewer context menu and info panel
     "rotate-right", "content-copy", "folder-search-outline", "open-in-app", "close",
-    "camera-iris", "map-marker-outline", "check",
+    "camera-iris", "map-marker-outline", "check", "hand-back-right", "hand-back-right-outline",
 ]
 
 def path_of(name):

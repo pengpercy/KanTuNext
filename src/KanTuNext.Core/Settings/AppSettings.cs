@@ -27,8 +27,18 @@ public sealed class AppSettings
     /// <summary>Whether the sidebar is shown (toolbar button / 显示 → 隐藏侧边栏).</summary>
     public bool SidebarVisible { get; set; } = true;
 
-    /// <summary>Recognize text in each photo the viewer shows, so it can be selected and copied right on the photo.</summary>
-    public bool LiveText { get; set; } = true;
+    /// <summary>
+    /// Recognize text in each photo the viewer shows, so it can be selected and copied right on the photo. Null:
+    /// the platform default (off on Linux, whose tesseract is slow; on elsewhere), until the user chooses.
+    /// </summary>
+    public bool? LiveText { get; set; }
+
+    [JsonIgnore]
+    public bool LiveTextEnabled => LiveText ?? !OperatingSystem.IsLinux();
+
+    /// <summary>Linux: draw the title bar in the app (as on Windows) rather than leave it to the window manager.
+    /// Read once at startup, before Avalonia, so a change applies after a restart.</summary>
+    public bool LinuxDrawnTitleBar { get; set; } = true;
 
     /// <summary>Look for a new version on GitHub a few seconds after launch (the only network access).</summary>
     public bool CheckUpdatesAutomatically { get; set; } = true;

@@ -20,6 +20,12 @@
       <CheckBox Content="自动识别图片中的文字，可直接在图片上选中复制" IsChecked="{Binding LiveText}" />
     </StackPanel>
 
+    <StackPanel Spacing="8" IsVisible="{Binding IsLinux}">
+      <TextBlock Text="窗口" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+      <CheckBox Content="使用自绘标题栏" IsChecked="{Binding LinuxDrawnTitleBar}" />
+      <TextBlock Text="重启看图后生效" FontSize="12" Foreground="{DynamicResource SubTextBrush}" IsVisible="{Binding RestartNeeded}" />
+    </StackPanel>
+
     <StackPanel Spacing="8">
       <TextBlock Text="缓存" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
       <Grid ColumnDefinitions="*,Auto">

@@ -33,9 +33,10 @@ public partial class ViewerWindow : Window
             OcrClose.Margin = new Thickness(0, 42, 6, 0);
             OcrHeader.Margin = new Thickness(0, 0, 22, 12);
         }
-        InfoHeader.PointerPressed += OnInfoDragStart;
-        InfoHeader.PointerMoved += OnInfoDrag;
-        InfoHeader.PointerReleased += (_, e) =>
+        // Buttons, selectable values and the scroll bar take their own presses; the rest of the panel drags it
+        InfoPanel.PointerPressed += OnInfoDragStart;
+        InfoPanel.PointerMoved += OnInfoDrag;
+        InfoPanel.PointerReleased += (_, e) =>
         {
             _infoDragFrom = null;
             e.Pointer.Capture(null);
@@ -83,9 +84,9 @@ public partial class ViewerWindow : Window
 
     private void OnInfoDragStart(object? sender, PointerPressedEventArgs e)
     {
-        if (!e.GetCurrentPoint(InfoHeader).Properties.IsLeftButtonPressed) return;
+        if (e.Handled || !e.GetCurrentPoint(InfoPanel).Properties.IsLeftButtonPressed) return;
         _infoDragFrom = e.GetPosition(this);
-        e.Pointer.Capture(InfoHeader);
+        e.Pointer.Capture(InfoPanel);
         e.Handled = true;
     }
 
@@ -132,6 +133,7 @@ public partial class ViewerWindow : Window
         }
         window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         window.Show();
+        window.Activate();
         _ = model.ShowAsync(model.Index);
     }
 
@@ -165,6 +167,7 @@ public partial class ViewerWindow : Window
             case Key.Delete or Key.Back: _ = DeleteAsync(); break;
             case Key.T when vm.OcrAvailable: vm.ToggleOcr(); break;
             case Key.I when e.KeyModifiers == KeyModifiers.None: vm.ToggleInfo(); break;
+            case Key.H when e.KeyModifiers == KeyModifiers.None: ToggleHandTool(); break;
             case Key.L when vm.IsLivePhoto: _ = vm.PlayLiveAsync(); break;
             case Key.C when e.KeyModifiers.HasFlag(KeyModifiers.Meta) || e.KeyModifiers.HasFlag(KeyModifiers.Control):
                 // Copies text selected on the photo, else all recognized text while it's shown, else the photo
@@ -198,6 +201,14 @@ public partial class ViewerWindow : Window
     private void OnCopyText(object? sender, RoutedEventArgs e) => _ = CopyTextAsync();
 
     private void OnInfo(object? sender, RoutedEventArgs e) => Model?.ToggleInfo();
+    private void OnHandTool(object? sender, RoutedEventArgs e) => ToggleHandTool();
+
+    /// <summary>Hand tool on: drags pan the photo everywhere, text included (as Photoshop's H).</summary>
+    private void ToggleHandTool()
+    {
+        Viewer.HandTool = !Viewer.HandTool;
+        HandButton.Classes.Set("on", Viewer.HandTool);
+    }
 
     private void OnCopyDetails(object? sender, RoutedEventArgs e)
     {
@@ -274,6 +285,7 @@ public partial class ViewerWindow : Window
                 "folder-search-outline", () => Reveal.InFileManager(file.Path), new KeyGesture(Key.R, command | KeyModifiers.Shift)),
             Item("用默认应用打开", "open-in-app", () => Opener.Open(file.Path)),
             new Separator(),
+            Item(Viewer.HandTool ? "关闭抓手工具" : "抓手工具", "hand-back-right-outline", ToggleHandTool, new KeyGesture(Key.H)),
             Item("实际大小", null, ActualSize, new KeyGesture(Key.D1)),
             Item("适应窗口", "fit-to-screen-outline", Viewer.FitToView, new KeyGesture(Key.D0)),
             Item("向左旋转", "rotate-left", () => Viewer.Rotate(-1), new KeyGesture(Key.R)),

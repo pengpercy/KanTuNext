@@ -43,13 +43,29 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public bool LiveText
     {
-        get => _settings.LiveText;
+        get => _settings.LiveTextEnabled;
         set
         {
             _settings.LiveText = value;
             _save();
         }
     }
+
+    public bool IsLinux => OperatingSystem.IsLinux();
+
+    public bool LinuxDrawnTitleBar
+    {
+        get => _settings.LinuxDrawnTitleBar;
+        set
+        {
+            _settings.LinuxDrawnTitleBar = value;
+            _save();
+            OnPropertyChanged(nameof(RestartNeeded));
+        }
+    }
+
+    /// <summary>The saved title bar choice differs from the one this run started with.</summary>
+    public bool RestartNeeded => IsLinux && _settings.LinuxDrawnTitleBar != KanTuNext.Desktop.Services.WindowChrome.UsesLinuxDrawnDecorations;
 
     public bool OcrAvailable => KanTuNext.Desktop.Services.Ocr.OcrEngines.IsAvailable;
 

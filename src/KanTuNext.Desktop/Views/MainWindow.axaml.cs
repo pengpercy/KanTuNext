@@ -22,8 +22,15 @@ public partial class MainWindow : Window
         {
             if (DataContext is not MainViewModel vm || file.Kind != KanTuNext.Core.Library.MediaKind.Image) return;
             var images = vm.Groups?.SelectMany(g => g.Items).Where(f => f.Kind == KanTuNext.Core.Library.MediaKind.Image).ToList() ?? [];
-            ViewerWindow.Open(this, images, images.IndexOf(file), vm.LiveText);
+            // After the double-click has been handled: opened in the middle of it, the viewer would come up and
+            // then fall behind the main window, which macOS raises again when it finishes processing the click
+            Dispatcher.UIThread.Post(() => ViewerWindow.Open(this, images, images.IndexOf(file), vm.LiveText), DispatcherPriority.Background);
         };
+        if (!WindowChrome.CaptionButtonsOnLeft)
+        {
+            SidebarToggle.IsVisible = false;
+            SidebarMenuButton.IsVisible = true;
+        }
         // Keep the toolbar's right-hand icons clear of the drawn min/max/close buttons
         if (WindowChrome.HasClientCaptionButtons)
             Toolbar.Margin = new Thickness(Toolbar.Margin.Left, 0, WindowChrome.CaptionButtonsWidth + 12, 0);
@@ -43,7 +50,7 @@ public partial class MainWindow : Window
             ApplySidebar(vm);
             vm.PropertyChanged += (_, e) =>
             {
-                if (e.PropertyName == nameof(MainViewModel.SidebarVisible)) ApplySidebar(vm);
+                if (e.PropertyName == nameof(MainViewModel.SidebarVisible)) SlideSidebar(vm);
             };
         };
 
@@ -151,15 +158,63 @@ public partial class MainWindow : Window
         Classes.Set("translucent", ActualTransparencyLevel != WindowTransparencyLevel.None
                                    && ActualTransparencyLevel != WindowTransparencyLevel.Transparent);
 
+    private const double SidebarSlideMs = 250;
+    private int _sidebarSlide;
+
     /// <summary>Shows or collapses the sidebar at its saved width.</summary>
     private void ApplySidebar(MainViewModel vm)
     {
+        _sidebarSlide++;
         var visible = vm.SidebarVisible;
         Sidebar.IsVisible = SidebarSplitter.IsVisible = visible;
+        Sidebar.Width = double.NaN;
+        Sidebar.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
         SidebarColumn.MinWidth = visible ? 160 : 0;
-        SidebarColumn.Width = new GridLength(visible ? Math.Clamp(vm.SidebarWidth, 160, 400) : 0);
-        // Without the sidebar the traffic lights sit over the toolbar: start it after them
-        var left = !visible && OperatingSystem.IsMacOS() ? 84 : 24;
+        SidebarColumn.Width = new GridLength(visible ? SidebarWidth(vm) : 0);
+        SetToolbarLeft(visible ? 0 : 1);
+    }
+
+    /// <summary>
+    /// Slides the sidebar in or out: the column eases to its new width while the sidebar keeps its full width,
+    /// pinned to the column's right edge, so it moves in from the left instead of squeezing its rows.
+    /// </summary>
+    private void SlideSidebar(MainViewModel vm)
+    {
+        var visible = vm.SidebarVisible;
+        var width = SidebarWidth(vm);
+        var from = SidebarColumn.ActualWidth;
+        var to = visible ? width : 0;
+        var slide = ++_sidebarSlide;
+        Sidebar.IsVisible = true;
+        SidebarSplitter.IsVisible = false;
+        Sidebar.Width = width;
+        Sidebar.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
+        SidebarColumn.MinWidth = 0;
+        var start = -1d;
+        void Step(TimeSpan now)
+        {
+            if (slide != _sidebarSlide) return;
+            if (start < 0) start = now.TotalMilliseconds;
+            var t = Math.Clamp((now.TotalMilliseconds - start) / SidebarSlideMs, 0, 1);
+            var eased = 1 - Math.Pow(1 - t, 3);
+            var column = from + (to - from) * eased;
+            SidebarColumn.Width = new GridLength(column);
+            SetToolbarLeft(1 - column / width);
+            if (t < 1) RequestAnimationFrame(Step);
+            else ApplySidebar(vm);
+        }
+        RequestAnimationFrame(Step);
+    }
+
+    private static double SidebarWidth(MainViewModel vm) => Math.Clamp(vm.SidebarWidth, 160, 400);
+
+    /// <summary>
+    /// Without the sidebar the window buttons (top-left) or the hamburger sit over the toolbar: start it after them.
+    /// </summary>
+    private void SetToolbarLeft(double collapsed)
+    {
+        var clear = OperatingSystem.IsMacOS() ? 84 : WindowChrome.CaptionButtonsOnLeft ? 0 : 48;
+        var left = 24 + Math.Max(0, clear - 24) * Math.Clamp(collapsed, 0, 1);
         Toolbar.Margin = new Thickness(left, 0, Toolbar.Margin.Right, 0);
     }
 

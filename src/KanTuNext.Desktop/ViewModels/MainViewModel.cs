@@ -207,7 +207,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool CheckUpdatesAutomatically => _settings.CheckUpdatesAutomatically;
 
-    public bool LiveText => _settings.LiveText;
+    public bool LiveText => _settings.LiveTextEnabled;
 
     public string? SkippedVersion => _settings.SkippedVersion;
 

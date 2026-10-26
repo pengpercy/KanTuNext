@@ -151,7 +151,7 @@
             chrome:WindowDecorationProperties.ElementRole="TitleBar">
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" HorizontalAlignment="Left"
                     chrome:WindowDecorationProperties.ElementRole="User">
-          <Button Classes="toolIcon" ToolTip.Tip="{Binding SidebarMenuText}" Click="OnToggleSidebar">
+          <Button x:Name="SidebarToggle" Classes="toolIcon" ToolTip.Tip="{Binding SidebarMenuText}" Click="OnToggleSidebar">
             <PathIcon Data="{StaticResource Icon.dock-left}" Width="18" Height="18" />
           </Button>
           <Button Classes="toolIcon" IsEnabled="False" ToolTip.Tip="返回">
@@ -245,5 +245,14 @@
     <!-- Drag to resize the sidebar; on top of the content so its grip overlaps both sides of the edge -->
     <GridSplitter x:Name="SidebarSplitter" Grid.Column="0" ResizeDirection="Columns" ResizeBehavior="CurrentAndNext"
                   DragCompleted="OnSidebarResized" />
+
+    <!-- Where the window buttons are on the right: a hamburger in the top-left corner instead of the toolbar
+         toggle, staying put while the sidebar slides under it -->
+    <Button x:Name="SidebarMenuButton" Grid.ColumnSpan="2" Classes="toolIcon" IsVisible="False"
+            HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,13,0,0"
+            ToolTip.Tip="{Binding SidebarMenuText}" Click="OnToggleSidebar"
+            chrome:WindowDecorationProperties.ElementRole="User">
+      <PathIcon Data="{StaticResource Icon.menu}" Width="18" Height="18" />
+    </Button>
   </Grid>
 </Window>
