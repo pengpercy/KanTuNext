@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.InteropServices;
 using KanTuNext.Core.Ocr;
 using SkiaSharp;
@@ -21,7 +20,7 @@ internal sealed class TesseractOcrEngine : IOcrEngine
 
     static TesseractOcrEngine()
     {
-        NativeLibrary.SetDllImportResolver(typeof(TesseractOcrEngine).Assembly, Resolve);
+        NativeLibraries.Register(Library, TryLoad);
     }
 
     public bool IsAvailable => OperatingSystem.IsLinux() && Setup.Value.Data is not null && TryLoad() != IntPtr.Zero;
@@ -118,9 +117,6 @@ internal sealed class TesseractOcrEngine : IOcrEngine
             if (NativeLibrary.TryLoad(name, out var handle)) return _handle = handle;
         return IntPtr.Zero;
     }
-
-    private static IntPtr Resolve(string name, Assembly assembly, DllImportSearchPath? path) =>
-        name == Library ? TryLoad() : IntPtr.Zero;
 
     [DllImport(Library)] private static extern IntPtr TessBaseAPICreate();
     [DllImport(Library)] private static extern int TessBaseAPIInit3(IntPtr api, string datapath, string language);

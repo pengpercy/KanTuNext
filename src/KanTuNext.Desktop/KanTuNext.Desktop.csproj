@@ -75,6 +75,20 @@
     <TrimmerRootAssembly Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
 
+  <!-- HEIC/AVIF codecs (libheif with libde265 + dav1d) and their licenses, built per RID by build/native into
+       .cache/native/<rid>. Windows and Linux packages carry them; macOS packages use ImageIO instead. -->
+  <PropertyGroup>
+    <CodecRid>$(RuntimeIdentifier)</CodecRid>
+    <CodecRid Condition="'$(CodecRid)' == ''">$(NETCoreSdkRuntimeIdentifier)</CodecRid>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Debug' or !$(CodecRid.StartsWith('osx'))">
+    <None Include="../../.cache/native/$(CodecRid)/**">
+      <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
   <!-- An unbundled macOS executable takes its localizations from *.lproj next to it; without them native
        panels (open/save) are English when running from bin/. Packages get them from the macOS package script. -->
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">

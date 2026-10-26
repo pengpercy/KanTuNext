@@ -47,6 +47,33 @@ jobs:
           # Pinned: rolling forward to the newest feature band has picked versions not yet downloadable
           dotnet-version: '10.0.402'
 
+      # HEIC/AVIF codecs (libheif + libde265 + dav1d), rebuilt only when build/native changes; macOS uses ImageIO
+      - name: Codec cache
+        id: codecs
+        if: ${{ !startsWith(matrix.runtime, 'osx-') }}
+        uses: actions/cache@v4
+        with:
+          path: .cache/native/${{ matrix.runtime }}
+          key: codecs-${{ matrix.runtime }}-${{ hashFiles('build/native/**') }}
+      - name: Build codecs (Linux)
+        if: startsWith(matrix.runtime, 'linux-') && steps.codecs.outputs.cache-hit != 'true'
+        run: build/native/linux-deps.sh && build/native/build-codecs.sh .cache/native/${{ matrix.runtime }}
+      - name: MSVC environment
+        if: startsWith(matrix.runtime, 'win-') && steps.codecs.outputs.cache-hit != 'true'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.runtime == 'win-arm64' && 'arm64' || 'x64' }}
+      - name: Build codecs (Windows)
+        if: startsWith(matrix.runtime, 'win-') && steps.codecs.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          python -m pip install meson ninja
+          if ('${{ matrix.runtime }}' -eq 'win-x64') {
+            choco install nasm -y --no-progress
+            $env:PATH += ";C:\Program Files\NASM"
+          }
+          build/native/build-codecs.ps1 .cache/native/${{ matrix.runtime }}
+
       - uses: actions/cache@v4
         with:
           path: .nuget/packages
