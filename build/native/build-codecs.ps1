@@ -25,13 +25,13 @@ Fetch "https://code.videolan.org/videolan/dav1d/-/archive/$DAV1D_VERSION/dav1d-$
 # arm64 assembly needs gas-preprocessor under MSVC; the C paths are fast enough for still images
 $asm = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "false" } else { "true" }
 meson setup "$work\dav1d-build" "$work\dav1d-$DAV1D_VERSION" --wipe --buildtype=release --default-library=static `
-    --prefix="$prefix" --libdir=lib -Db_vscrt=mt -Denable_asm=$asm `
+    "--prefix=$prefix" --libdir=lib -Db_vscrt=mt "-Denable_asm=$asm" `
     -Denable_tools=false -Denable_tests=false -Denable_examples=false
 ninja -C "$work\dav1d-build" install
 
 $crt = "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded", "-DCMAKE_POLICY_DEFAULT_CMP0091=NEW"
 cmake -S "$work\libde265-$LIBDE265_VERSION" -B "$work\de265-build" -G Ninja -DCMAKE_BUILD_TYPE=Release @crt `
-    -DCMAKE_INSTALL_PREFIX="$prefix" -DBUILD_SHARED_LIBS=OFF -DENABLE_SDL=OFF -DENABLE_DECODER=OFF -DENABLE_ENCODER=OFF
+    "-DCMAKE_INSTALL_PREFIX=$prefix" -DBUILD_SHARED_LIBS=OFF -DENABLE_SDL=OFF -DENABLE_DECODER=OFF -DENABLE_ENCODER=OFF
 cmake --build "$work\de265-build" --target install
 
 $de265 = (Get-ChildItem "$prefix\lib" -Filter "*de265*.lib" | Select-Object -First 1).FullName
@@ -41,12 +41,12 @@ $off = "X265 X264 OpenH264_DECODER AOM_DECODER AOM_ENCODER SvtEnc RAV1E KVAZAAR 
        "OpenJPEG_DECODER OpenJPEG_ENCODER OPENJPH_ENCODER FFMPEG_DECODER LIBSHARPYUV UNCOMPRESSED_CODEC EXAMPLES GDK_PIXBUF"
 $offArgs = $off.Split(" ") | ForEach-Object { "-DWITH_$_=OFF" }
 cmake -S "$work\libheif-$LIBHEIF_VERSION" -B "$work\heif-build" -G Ninja -DCMAKE_BUILD_TYPE=Release @crt `
-    -DCMAKE_INSTALL_PREFIX="$prefix" -DCMAKE_PREFIX_PATH="$prefix" -DBUILD_SHARED_LIBS=ON `
+    "-DCMAKE_INSTALL_PREFIX=$prefix" "-DCMAKE_PREFIX_PATH=$prefix" -DBUILD_SHARED_LIBS=ON `
     -DBUILD_TESTING=OFF -DBUILD_DOCUMENTATION=OFF -DENABLE_PLUGIN_LOADING=OFF `
     -DWITH_LIBDE265=ON -DWITH_LIBDE265_PLUGIN=OFF -DWITH_DAV1D=ON -DWITH_DAV1D_PLUGIN=OFF `
-    -DLIBDE265_INCLUDE_DIR="$prefix\include" -DLIBDE265_LIBRARY="$de265" `
-    -DDAV1D_INCLUDE_DIR="$prefix\include" -DDAV1D_LIBRARY="$dav1d" `
-    -DCMAKE_CXX_FLAGS="/DWIN32 /D_WINDOWS /GR /EHsc /DLIBDE265_STATIC_BUILD" -DCMAKE_C_FLAGS="/DWIN32 /D_WINDOWS /DLIBDE265_STATIC_BUILD" @offArgs
+    "-DLIBDE265_INCLUDE_DIR=$prefix\include" "-DLIBDE265_LIBRARY=$de265" `
+    "-DDAV1D_INCLUDE_DIR=$prefix\include" "-DDAV1D_LIBRARY=$dav1d" `
+    "-DCMAKE_CXX_FLAGS=/DWIN32 /D_WINDOWS /GR /EHsc /DLIBDE265_STATIC_BUILD" "-DCMAKE_C_FLAGS=/DWIN32 /D_WINDOWS /DLIBDE265_STATIC_BUILD" @offArgs
 cmake --build "$work\heif-build"
 
 Copy-Item (Get-ChildItem "$work\heif-build" -Recurse -Filter "heif.dll" | Select-Object -First 1).FullName "$Out\heif.dll"
