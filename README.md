@@ -1,26 +1,64 @@
 # 看图 KanTuNext
 
-一款离线的看图与图片整理工具：本地浏览、看图、整理图片，外加 OCR。照片只在本机处理，不收集、不上传任何数据；唯一的网络访问是检查更新（GitHub Releases，可在设置里关闭）。
+一款离线的看图与照片整理工具。打开就能按时间浏览电脑上的照片，快速看大图、挑好片、清理重复，还能直接识别并复制图片里的文字。支持 Windows、macOS 和 Linux。
 
-支持常见格式（JPEG、PNG、GIF/WebP 动图、BMP、TIFF 等），以及 HEIC/HEIF、AVIF 和实况照片：macOS 用系统 ImageIO
-解码，Windows 和 Linux 安装包自带 libheif（内含 libde265、dav1d），不需要另装系统解码扩展；Linux 安装包另带 libtiff
-（内含 libjpeg-turbo）解码 TIFF。
+照片只在你的电脑上处理，不收集、不上传任何数据。
 
-- 设计稿：`design/KanTuNext.figcraft`（FigCraft，仅本地保留，不进仓库：含宣传图素材）
+## 功能
 
-## 开发
+**按时间整理照片**
+- 文件夹里的照片按拍摄月份自动分组，一眼找到某段时间的照片
+- 缩略图有小、中、大、最大四档，随时切换
+- 「找图」按文件名或日期筛选，输入「2016」「2016年6月」「6月」都可以
+- 常用文件夹一键添加，子文件夹可在侧边栏里展开
+- 侧边栏可拖动调整宽度，也可以一键收起
+
+**智能分类**
+- 大图片、屏幕快照、视频自动归类
+- 重复照片：扫描找出完全相同的照片，方便批量清理
+- 最近删除：删掉的照片可以放回原处
+
+**挑片标记**
+- 给照片标记「好」「中」「差」，侧边栏里按标记查看
+
+**看大图**
+- 滚轮、触控板双指缩放，拖动平移，双击在适应窗口和实际大小之间切换
+- 旋转、1:1 实际大小、适应窗口
+- 切换照片有平滑的滑动过渡，键盘方向键、空格即可翻页
+- 播放 GIF / WebP 动图和实况照片
+- 右键菜单：复制图片、复制文件路径、在文件夹中显示、用其他应用打开等
+
+**图片信息**
+- 在照片上叠加显示详细参数：相机与镜头、光圈、快门、ISO、焦距、曝光补偿、测光、闪光灯、白平衡
+- 尺寸、像素数、宽高比、文件大小、颜色配置、拍摄和修改时间
+- 拍摄地点的经纬度、海拔和朝向，可在地图中查看
+- 一键复制全部信息
+
+**图中文字直接复制**
+- 看图时自动识别照片和截图里的中英文文字，鼠标移到文字上即可直接拖动选中，右键或 ⌘C / Ctrl+C 复制
+- 打开「识别文字」可以标出所有文字并在侧栏列出全文，一键复制全部
+- 不需要时可在设置里关闭自动识别
+
+**格式支持**
+- JPEG、PNG、GIF、WebP、BMP、TIFF，以及 iPhone 常用的 HEIC/HEIF、AVIF 和实况照片
+- 无需另外安装解码插件
+
+**其他**
+- 跟随系统的浅色 / 深色外观
+- 有新版本时提示更新，也可以设置为后台自动下载，重启即完成更新（可在设置中关闭检查）
+
+## 下载
+
+在 [Releases](../../releases) 页面下载对应系统的安装包：macOS（.dmg）、Windows（.zip，解压即用）、Linux（.deb / .rpm / AppImage）。
+
+## 从源码运行
+
+需要 .NET SDK（版本见 `global.json`）：
 
 ```bash
-dotnet test tests/KanTuNext.Tests/KanTuNext.Tests.csproj
-dotnet run --project src/KanTuNext.Desktop            # Debug（无 AOT，可用预览器）
-dotnet publish src/KanTuNext.Desktop -c Release -r osx-arm64 --self-contained -o artifacts/publish/osx-arm64   # NativeAOT
+dotnet run --project src/KanTuNext.Desktop
 ```
-
-打包：`build/scripts/package.{osx-app.sh,linux.sh,win.ps1}`（输入为 `build/KanTuNext/` 下的发布目录）。
-发布：写好 `CHANGELOG.md` 对应版本段落后运行 `tools/local/release.sh --bump patch --push`。
-解码库：`build/native/build-codecs.{sh,ps1}` 按 RID 编译到 `.cache/native/<rid>/`，CI 会缓存；本地 Debug 运行时有就复制。
-图标：改 `build/resources/icon/*.svg` 后运行 `tools/make_icons.sh`；MDI 图标清单在 `tools/gen_icons.py`。
 
 ## 许可
 
-MIT，见 `LICENSE`。Windows / Linux 安装包附带的 libheif、libde265 为 LGPL-3.0，dav1d 为 BSD-2-Clause；Linux 安装包附带的 libtiff 为 libtiff 许可，libjpeg-turbo 为 IJG/BSD-3-Clause。许可全文和源码地址在安装目录的 `licenses/` 下。
+MIT，见 `LICENSE`。安装包附带的第三方解码库及其许可见安装目录的 `licenses/`。
