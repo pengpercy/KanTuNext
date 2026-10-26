@@ -29,6 +29,7 @@ public partial class MainWindow : Window
         if (!WindowChrome.CaptionButtonsOnLeft)
         {
             SidebarToggle.IsVisible = false;
+            SidebarCollapsedToggle.IsVisible = false;
             SidebarMenuButton.IsVisible = true;
         }
         // Keep the toolbar's right-hand icons clear of the drawn min/max/close buttons
@@ -171,6 +172,7 @@ public partial class MainWindow : Window
         Sidebar.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
         SidebarColumn.MinWidth = visible ? 160 : 0;
         SidebarColumn.Width = new GridLength(visible ? SidebarWidth(vm) : 0);
+        UpdateSidebarButtons(visible);
         SetToolbarLeft(visible ? 0 : 1);
     }
 
@@ -190,6 +192,9 @@ public partial class MainWindow : Window
         Sidebar.Width = width;
         Sidebar.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
         SidebarColumn.MinWidth = 0;
+        // When opening, move the toggle into the sidebar immediately. When closing, leave it there until the
+        // divider is gone; ApplySidebar then exposes the collapsed toggle in the content toolbar.
+        if (visible) UpdateSidebarButtons(true);
         var start = -1d;
         void Step(TimeSpan now)
         {
@@ -207,6 +212,13 @@ public partial class MainWindow : Window
     }
 
     private static double SidebarWidth(MainViewModel vm) => Math.Clamp(vm.SidebarWidth, 160, 400);
+
+    private void UpdateSidebarButtons(bool sidebarVisible)
+    {
+        if (!WindowChrome.CaptionButtonsOnLeft) return;
+        SidebarToggle.IsVisible = sidebarVisible;
+        SidebarCollapsedToggle.IsVisible = !sidebarVisible;
+    }
 
     /// <summary>
     /// Without the sidebar the window buttons (top-left) or the hamburger sit over the toolbar: start it after them.

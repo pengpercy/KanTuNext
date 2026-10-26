@@ -95,9 +95,15 @@
     <!-- Sidebar -->
     <Border x:Name="Sidebar" Grid.Column="0" Background="{DynamicResource SidebarBrush}">
       <DockPanel>
-        <!-- Traffic lights / drag area above the list -->
+        <!-- Traffic lights / drag area above the list; the toggle stays on the sidebar side of its divider -->
         <Border DockPanel.Dock="Top" Height="44" Background="Transparent"
-                chrome:WindowDecorationProperties.ElementRole="TitleBar" />
+                chrome:WindowDecorationProperties.ElementRole="TitleBar">
+          <Button x:Name="SidebarToggle" Classes="toolIcon" HorizontalAlignment="Right" VerticalAlignment="Center"
+                  Margin="0,0,10,0" ToolTip.Tip="{Binding SidebarMenuText}" Click="OnToggleSidebar"
+                  chrome:WindowDecorationProperties.ElementRole="User">
+            <PathIcon Data="{StaticResource Icon.dock-left}" Width="18" Height="18" />
+          </Button>
+        </Border>
         <ScrollViewer HorizontalScrollBarVisibility="Disabled">
           <ItemsControl ItemsSource="{Binding Sections}" Margin="0,0,0,12">
             <ItemsControl.ItemTemplate>
@@ -151,7 +157,9 @@
             chrome:WindowDecorationProperties.ElementRole="TitleBar">
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" HorizontalAlignment="Left"
                     chrome:WindowDecorationProperties.ElementRole="User">
-          <Button x:Name="SidebarToggle" Classes="toolIcon" ToolTip.Tip="{Binding SidebarMenuText}" Click="OnToggleSidebar">
+          <!-- Only visible while the sidebar is collapsed, when there is no divider to stay left of -->
+          <Button x:Name="SidebarCollapsedToggle" Classes="toolIcon" IsVisible="False"
+                  ToolTip.Tip="{Binding SidebarMenuText}" Click="OnToggleSidebar">
             <PathIcon Data="{StaticResource Icon.dock-left}" Width="18" Height="18" />
           </Button>
           <Button Classes="toolIcon" IsEnabled="False" ToolTip.Tip="返回">
@@ -181,14 +189,16 @@
           <Button x:Name="InfoButton" Classes="toolIcon" ToolTip.Tip="简介" IsEnabled="{Binding HasSelection}">
             <PathIcon Data="{StaticResource Icon.information-outline}" Width="18" Height="18" />
             <Button.Flyout>
-              <Flyout Placement="BottomEdgeAlignedRight">
-                <ItemsControl ItemsSource="{Binding Info}" Width="300" Margin="4">
+              <Flyout Placement="BottomEdgeAlignedRight" FlyoutPresenterClasses="photoInfo">
+                <ItemsControl ItemsSource="{Binding Info}" Width="300" Margin="4,5">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="services:InfoRow">
-                      <Grid ColumnDefinitions="64,*" Margin="0,3">
-                        <TextBlock Text="{Binding Label}" FontSize="12" Foreground="{DynamicResource SubTextBrush}" />
-                        <SelectableTextBlock Grid.Column="1" Text="{Binding Value}" FontSize="12" TextWrapping="Wrap"
-                                             Foreground="{DynamicResource TextBrush}" />
+                      <Grid ColumnDefinitions="68,*" ColumnSpacing="10" Margin="6,5">
+                        <TextBlock Text="{Binding Label}" FontSize="12" LineHeight="18" Padding="0"
+                                   VerticalAlignment="Top" Foreground="#8CFFFFFF" />
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding Value}" FontSize="12" LineHeight="18"
+                                             Padding="0" VerticalAlignment="Top" TextWrapping="Wrap"
+                                             Foreground="#F2FFFFFF" SelectionBrush="#662E9BFF" />
                       </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>

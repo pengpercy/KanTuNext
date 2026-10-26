@@ -73,6 +73,15 @@
     <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
   </Style>
 
+  <!-- Main-window photo info: match the translucent card over a photo in the viewer. -->
+  <Style Selector="FlyoutPresenter.photoInfo">
+    <Setter Property="Background" Value="#C7141416" />
+    <Setter Property="BorderBrush" Value="#1FFFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="8" />
+  </Style>
+
   <!-- Tooltips: even padding above and below (Fluent's 5/7 sits the text high) -->
   <Style Selector="ToolTip">
     <Setter Property="Padding" Value="8,5" />
