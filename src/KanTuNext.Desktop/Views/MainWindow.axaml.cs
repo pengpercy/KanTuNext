@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
@@ -38,10 +40,10 @@ public partial class MainWindow : Window
         if (WindowChrome.HasClientCaptionButtons)
             Toolbar.Margin = new Thickness(Toolbar.Margin.Left, 0, WindowChrome.CaptionButtonsWidth + 12, 0);
 
-        // A blurred backdrop behind the sidebar where the platform has one (macOS vibrancy, Windows 11 Mica,
-        // Windows 10 acrylic); the window stays opaque, sidebar included, wherever it doesn't
+        // Frosted glass behind the sidebar where the platform has it (macOS vibrancy, Windows acrylic; Mica only
+        // tints with the wallpaper, so it is the fallback); the window stays opaque, sidebar included, elsewhere
         if (OperatingSystem.IsMacOS() || OperatingSystem.IsWindows())
-            TransparencyLevelHint = [WindowTransparencyLevel.Mica, WindowTransparencyLevel.AcrylicBlur, WindowTransparencyLevel.Blur];
+            TransparencyLevelHint = [WindowTransparencyLevel.AcrylicBlur, WindowTransparencyLevel.Mica, WindowTransparencyLevel.Blur];
         PropertyChanged += (_, e) =>
         {
             if (e.Property == ActualTransparencyLevelProperty) UpdateTranslucency();
@@ -125,34 +127,48 @@ public partial class MainWindow : Window
         _normalChangedAt = now;
     }
 
-    /// <summary>Right-click menu on a thumbnail: put back (最近删除) or reveal / mark / delete.</summary>
-    private void ShowContextMenu(KanTuNext.Core.Library.MediaFile file)
+    /// <summary>
+    /// Right-click menu on a thumbnail, built like the viewer's (Services/Menus.cs): put back (最近删除), or open,
+    /// info, copy, reveal, mark and delete. Shortcuts are shown where the menu bar provides them (macOS).
+    /// </summary>
+    private void ShowContextMenu(MediaFile file)
     {
         if (DataContext is not MainViewModel vm) return;
+        MenuItem Item(string header, string? icon, Action action, KeyGesture? gesture = null, bool isChecked = false) =>
+            Menus.Item(this, header, icon, action, OperatingSystem.IsMacOS() ? gesture : null, isChecked);
         var items = new List<object>();
-        MenuItem Item(string header, Action action)
-        {
-            var item = new MenuItem { Header = header };
-            item.Click += (_, _) => action();
-            return item;
-        }
         if (vm.IsRecentlyDeleted)
         {
-            items.Add(Item("放回原处", () => vm.Restore(file)));
+            items.Add(Item("放回原处", "rotate-left", () => vm.Restore(file)));
         }
         else
         {
-            items.Add(Item(OperatingSystem.IsMacOS() ? "在访达中显示" : OperatingSystem.IsWindows() ? "在资源管理器中显示" : "打开所在文件夹",
-                () => Reveal.InFileManager(file.Path)));
+            var tag = vm.TagOf(file);
+            var isImage = file.Kind == MediaKind.Image;
+            if (isImage) items.Add(Item("打开", "magnify-plus-outline", () => Grid.OpenItem(file), new KeyGesture(Key.Down, KeyModifiers.Meta)));
+            items.Add(Item("显示简介", "information-outline", () => OnInfoMenu(null, EventArgs.Empty), new KeyGesture(Key.I, KeyModifiers.Meta)));
             items.Add(new Separator());
-            items.Add(Item("标记为「好」", () => vm.ToggleTag(file, KanTuNext.Core.Library.PhotoTag.Good)));
-            items.Add(Item("标记为「中」", () => vm.ToggleTag(file, KanTuNext.Core.Library.PhotoTag.Neutral)));
-            items.Add(Item("标记为「差」", () => vm.ToggleTag(file, KanTuNext.Core.Library.PhotoTag.Bad)));
+            if (isImage) items.Add(Item("复制图片", "content-copy", () => _ = CopyImageAsync(file)));
+            items.Add(Item("复制文件路径", null, () => _ = Clipboard?.SetTextAsync(file.Path)));
+            items.Add(Item(Menus.RevealText, "folder-search-outline", () => Reveal.InFileManager(file.Path),
+                new KeyGesture(Key.R, KeyModifiers.Meta | KeyModifiers.Shift)));
+            items.Add(Item("用默认应用打开", "open-in-app", () => Opener.Open(file.Path)));
             items.Add(new Separator());
-            items.Add(Item("移到废纸篓", () => vm.Delete(file)));
+            items.Add(Item("标记为「好」", "thumb-up-outline", () => vm.ToggleTag(file, PhotoTag.Good), isChecked: tag == PhotoTag.Good));
+            items.Add(Item("标记为「中」", "emoticon-neutral-outline", () => vm.ToggleTag(file, PhotoTag.Neutral), isChecked: tag == PhotoTag.Neutral));
+            items.Add(Item("标记为「差」", "thumb-down-outline", () => vm.ToggleTag(file, PhotoTag.Bad), isChecked: tag == PhotoTag.Bad));
+            items.Add(new Separator());
+            items.Add(Item("移到废纸篓", "trash-can-outline", () => vm.Delete(file), new KeyGesture(Key.Back, KeyModifiers.Meta)));
         }
-        var menu = new ContextMenu { ItemsSource = items };
-        menu.Open(Grid);
+        new ContextMenu { ItemsSource = items }.Open(Grid);
+    }
+
+    private static readonly ImageLoader CopyLoader = new();
+
+    private async Task CopyImageAsync(MediaFile file)
+    {
+        if (Clipboard is { } clipboard && (await CopyLoader.LoadAsync(file.Path, ImageLoader.FullEdge))?.First is { } bitmap)
+            await clipboard.SetBitmapAsync(bitmap);
     }
 
     private ColumnDefinition SidebarColumn => Layout.ColumnDefinitions[0];

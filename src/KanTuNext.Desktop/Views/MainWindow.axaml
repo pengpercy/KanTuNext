@@ -12,14 +12,19 @@
         WindowDecorations="Full"
         FontSize="13">
   <Window.Styles>
-    <!-- Opaque unless the platform gives the window a blurred backdrop: then only the sidebar lets it through -->
-    <Style Selector="views|MainWindow">
+    <!-- Opaque unless the platform gives the window a blurred backdrop: then only the sidebar lets it through.
+         "Window", not "views|MainWindow": a Window subclass is styled as Window, so the type selector never matches. -->
+    <Style Selector="Window">
       <Setter Property="Background" Value="{DynamicResource PageBrush}" />
     </Style>
-    <Style Selector="views|MainWindow.translucent">
+    <Style Selector="Window.translucent">
       <Setter Property="Background" Value="Transparent" />
     </Style>
-    <Style Selector="views|MainWindow.translucent Border#Sidebar">
+    <!-- Set here, not on the Border: a local Background would beat the translucent style below -->
+    <Style Selector="Border#Sidebar">
+      <Setter Property="Background" Value="{DynamicResource SidebarBrush}" />
+    </Style>
+    <Style Selector="Window.translucent Border#Sidebar">
       <Setter Property="Background" Value="{DynamicResource SidebarTranslucentBrush}" />
     </Style>
     <!-- Sidebar edge: a hairline with a wider invisible grip -->
@@ -93,7 +98,7 @@
     </Grid.ColumnDefinitions>
 
     <!-- Sidebar -->
-    <Border x:Name="Sidebar" Grid.Column="0" Background="{DynamicResource SidebarBrush}">
+    <Border x:Name="Sidebar" Grid.Column="0">
       <DockPanel>
         <!-- Traffic lights / drag area above the list -->
         <Border DockPanel.Dock="Top" Height="44" Background="Transparent"
@@ -183,9 +188,9 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="services:InfoRow">
                       <Grid ColumnDefinitions="68,*" ColumnSpacing="10" Margin="6,5">
-                        <TextBlock Text="{Binding Label}" FontSize="12" LineHeight="18" Padding="0"
+                        <TextBlock Text="{Binding Label}" FontFamily="{StaticResource InfoRowFont}" FontSize="12" LineHeight="18" Padding="0"
                                    VerticalAlignment="Top" Foreground="#8CFFFFFF" />
-                        <SelectableTextBlock Grid.Column="1" Text="{Binding Value}" FontSize="12" LineHeight="18"
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding Value}" FontFamily="{StaticResource InfoRowFont}" FontSize="12" LineHeight="18"
                                              Padding="0" VerticalAlignment="Top" TextWrapping="Wrap"
                                              Foreground="#F2FFFFFF" SelectionBrush="#662E9BFF" />
                       </Grid>

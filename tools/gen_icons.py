@@ -20,7 +20,7 @@ ICONS = [
     # viewer toolbar
     "thumb-up-outline", "emoticon-neutral-outline",
     "thumb-down-outline", "magnify-plus-outline", "magnify-minus-outline", "fit-to-screen-outline",
-    "rotate-left", "dots-grid", "menu-left", "text-recognition",
+    "rotate-left", "dots-grid", "menu-left", "text-recognition", "fullscreen", "fullscreen-exit",
     # sidebar toggle: after the traffic lights (macOS-style), hamburger where the caption buttons are on the right
     "dock-left", "menu",
     # viewer context menu and info panel

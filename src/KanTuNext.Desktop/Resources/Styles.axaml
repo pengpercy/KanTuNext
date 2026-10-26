@@ -78,8 +78,24 @@
     <Setter Property="Background" Value="#C7141416" />
     <Setter Property="BorderBrush" Value="#1FFFFFFF" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="CornerRadius" Value="{StaticResource PanelCornerRadius}" />
     <Setter Property="Padding" Value="8" />
+  </Style>
+
+  <!-- Right-click menus everywhere: compact rows, smaller type and icons than Fluent's touch-friendly defaults
+       (items come from Services/Menus.cs) -->
+  <Style Selector="ContextMenu">
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="CornerRadius" Value="{StaticResource PanelCornerRadius}" />
+  </Style>
+  <Style Selector="ContextMenu MenuItem">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Padding" Value="8,3" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="CornerRadius" Value="{StaticResource ItemCornerRadius}" />
+  </Style>
+  <Style Selector="ContextMenu Separator">
+    <Setter Property="Margin" Value="8,3" />
   </Style>
 
   <!-- Tooltips: even padding above and below (Fluent's 5/7 sits the text high) -->

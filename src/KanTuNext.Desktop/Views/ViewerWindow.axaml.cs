@@ -27,6 +27,13 @@ public partial class ViewerWindow : Window
             if (!ToolbarDock.IsPointerOver) ToolbarDock.Opacity = 0;
         });
         PointerMoved += (_, _) => ShowToolbar();
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property != WindowStateProperty) return;
+            if (e.NewValue is WindowState.FullScreen && e.OldValue is WindowState old and not WindowState.FullScreen)
+                _beforeFullScreen = old == WindowState.Maximized ? WindowState.Maximized : WindowState.Normal;
+            UpdateFullScreen();
+        };
         // Windows and Linux draw min/max/close in that corner: level with the panel's header instead
         if (WindowChrome.HasClientCaptionButtons)
         {
@@ -160,7 +167,10 @@ public partial class ViewerWindow : Window
             case Key.D1 or Key.NumPad1: ActualSize(); break;
             case Key.R: Viewer.Rotate(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 1 : -1); break;
             case Key.Escape when Viewer.HasSelection: Viewer.ClearSelection(); break;
+            case Key.Escape when WindowState == WindowState.FullScreen: ToggleFullScreen(); break;
             case Key.Escape: Close(); break;
+            case Key.F when e.KeyModifiers == KeyModifiers.None: ToggleFullScreen(); break;
+            case Key.F11: ToggleFullScreen(); break;
             case Key.A when Viewer.HasText && (e.KeyModifiers.HasFlag(KeyModifiers.Meta) || e.KeyModifiers.HasFlag(KeyModifiers.Control)):
                 Viewer.SelectAll();
                 break;
@@ -195,6 +205,24 @@ public partial class ViewerWindow : Window
     private void OnFit(object? sender, RoutedEventArgs e) => Viewer.FitToView();
     private void OnRotate(object? sender, RoutedEventArgs e) => Viewer.Rotate(-1);
     private void OnClose(object? sender, RoutedEventArgs e) => Close();
+    private void OnFullScreen(object? sender, RoutedEventArgs e) => ToggleFullScreen();
+
+    private WindowState _beforeFullScreen = WindowState.Normal;
+
+    /// <summary>F, F11, ⌃⌘F or the toolbar button; leaving goes back to the size the window had (maximized or not).</summary>
+    private void ToggleFullScreen() =>
+        WindowState = WindowState == WindowState.FullScreen ? _beforeFullScreen : WindowState.FullScreen;
+
+    /// <summary>The button's icon and tip and the menu item follow the window, however it entered full screen.</summary>
+    private void UpdateFullScreen()
+    {
+        var on = WindowState == WindowState.FullScreen;
+        FullScreenIcon.Data = (Geometry)this.FindResource(on ? "Icon.fullscreen-exit" : "Icon.fullscreen")!;
+        ToolTip.SetTip(FullScreenButton, on ? "退出全屏（F）" : "全屏（F）");
+        if (NativeMenu.GetMenu(this) is { } menu)
+            foreach (var item in menu.Items.OfType<NativeMenuItem>().SelectMany(m => m.Menu?.Items.OfType<NativeMenuItem>() ?? []))
+                if (item.Header is "进入全屏幕" or "退出全屏幕") item.Header = on ? "退出全屏幕" : "进入全屏幕";
+    }
     private void OnDelete(object? sender, RoutedEventArgs e) => _ = DeleteAsync();
     private void OnOcr(object? sender, RoutedEventArgs e) => Model?.ToggleOcr();
     private void OnPlayLive(object? sender, RoutedEventArgs e) => _ = Model?.PlayLiveAsync();
@@ -256,15 +284,9 @@ public partial class ViewerWindow : Window
     private void ShowContextMenu()
     {
         if (Model is not { Current: { } file } vm) return;
-        var command = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
-        MenuItem Item(string header, string? icon, Action action, KeyGesture? gesture = null, bool isChecked = false)
-        {
-            var item = new MenuItem { Header = header, InputGesture = gesture };
-            if (isChecked) item.Icon = new PathIcon { Data = (Geometry)this.FindResource("Icon.check")!, Width = 12, Height = 12 };
-            else if (icon is not null) item.Icon = new PathIcon { Data = (Geometry)this.FindResource("Icon." + icon)!, Width = 13, Height = 13 };
-            item.Click += (_, _) => action();
-            return item;
-        }
+        var command = Menus.Command;
+        MenuItem Item(string header, string? icon, Action action, KeyGesture? gesture = null, bool isChecked = false) =>
+            Menus.Item(this, header, icon, action, gesture, isChecked);
         var tag = vm.Tag;
         var items = new List<object>();
         if (Viewer.HasText)
@@ -281,8 +303,7 @@ public partial class ViewerWindow : Window
             new Separator(),
             Item("复制图片", Viewer.HasText ? null : "content-copy", () => _ = CopyImageAsync(), Viewer.HasSelection ? null : new KeyGesture(Key.C, command)),
             Item("复制文件路径", null, () => _ = CopyPathAsync()),
-            Item(OperatingSystem.IsMacOS() ? "在访达中显示" : OperatingSystem.IsWindows() ? "在资源管理器中显示" : "打开所在文件夹",
-                "folder-search-outline", () => Reveal.InFileManager(file.Path), new KeyGesture(Key.R, command | KeyModifiers.Shift)),
+            Item(Menus.RevealText, "folder-search-outline", () => Reveal.InFileManager(file.Path), new KeyGesture(Key.R, command | KeyModifiers.Shift)),
             Item("用默认应用打开", "open-in-app", () => Opener.Open(file.Path)),
             new Separator(),
             Item(Viewer.HandTool ? "关闭抓手工具" : "抓手工具", "hand-back-right-outline", ToggleHandTool, new KeyGesture(Key.H)),
@@ -337,6 +358,7 @@ public partial class ViewerWindow : Window
     private void OnTagNeutralMenu(object? sender, EventArgs e) => Model?.ToggleTag(KanTuNext.Core.Library.PhotoTag.Neutral);
     private void OnTagBadMenu(object? sender, EventArgs e) => Model?.ToggleTag(KanTuNext.Core.Library.PhotoTag.Bad);
     private void OnTrashMenu(object? sender, EventArgs e) => _ = DeleteAsync();
+    private void OnFullScreenMenu(object? sender, EventArgs e) => ToggleFullScreen();
     private void OnMinimizeMenu(object? sender, EventArgs e) => WindowState = WindowState.Minimized;
     private void OnZoomWindowMenu(object? sender, EventArgs e) =>
         WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;

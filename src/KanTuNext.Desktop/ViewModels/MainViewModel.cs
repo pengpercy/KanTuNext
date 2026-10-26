@@ -97,6 +97,7 @@ public sealed partial class MainViewModel : ObservableObject
     public bool Delete(MediaFile file) => AppServices.Delete(file.Path);
 
     public void ToggleTag(MediaFile file, PhotoTag tag) => AppServices.Tags.Toggle(file.Path, tag);
+    public PhotoTag TagOf(MediaFile file) => AppServices.Tags.Get(file.Path);
 
     public bool IsRecentlyDeleted => Selected?.Category == LibraryCategory.RecentlyDeleted;
 

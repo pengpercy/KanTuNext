@@ -50,7 +50,7 @@
       <Setter Property="Padding" Value="0" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="CornerRadius" Value="{StaticResource ItemCornerRadius}" />
       <Setter Property="ToolTip.ShowDelay" Value="1000" />
       <Setter Property="Foreground" Value="#B3FFFFFF" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -65,7 +65,7 @@
       <Setter Property="Background" Value="#1A2E9BFF" />
       <Setter Property="Foreground" Value="#FF5CB2FF" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="CornerRadius" Value="{StaticResource CardCornerRadius}" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
@@ -77,20 +77,6 @@
       <Setter Property="Transitions">
         <Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.18" /></Transitions>
       </Setter>
-    </Style>
-    <!-- Right-click menu: compact rows, smaller type and icons than Fluent's touch-friendly defaults -->
-    <Style Selector="ContextMenu">
-      <Setter Property="Padding" Value="4" />
-      <Setter Property="CornerRadius" Value="8" />
-    </Style>
-    <Style Selector="ContextMenu MenuItem">
-      <Setter Property="FontSize" Value="12" />
-      <Setter Property="Padding" Value="8,3" />
-      <Setter Property="MinHeight" Value="0" />
-      <Setter Property="CornerRadius" Value="5" />
-    </Style>
-    <Style Selector="ContextMenu Separator">
-      <Setter Property="Margin" Value="8,3" />
     </Style>
     <Style Selector="Border.toolDivider">
       <Setter Property="Width" Value="1" />
@@ -124,6 +110,8 @@
           <NativeMenuItemSeparator />
           <NativeMenuItem Header="向左旋转" Gesture="Cmd+L" Click="OnRotateLeftMenu" />
           <NativeMenuItem Header="向右旋转" Gesture="Cmd+R" Click="OnRotateRightMenu" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="进入全屏幕" Gesture="Cmd+Ctrl+F" Click="OnFullScreenMenu" />
         </NativeMenu>
       </NativeMenuItem>
       <NativeMenuItem Header="照片">
@@ -181,7 +169,7 @@
 
     <!-- 图片信息: a translucent card over the photo, refreshed as photos change -->
     <Border x:Name="InfoPanel" IsVisible="{Binding ShowInfo}" HorizontalAlignment="Right" VerticalAlignment="Top"
-            Margin="0,44,14,100" Width="320" CornerRadius="10" ClipToBounds="True"
+            Margin="0,44,14,100" Width="320" CornerRadius="{StaticResource PanelCornerRadius}" ClipToBounds="True"
             Background="#C7141416" BorderBrush="#1FFFFFFF" BorderThickness="1" BoxShadow="0 14 44 0 #80000000">
       <!-- How far the panel was dragged from its place at the top right (drag any blank part of it) -->
       <Border.RenderTransform>
@@ -207,7 +195,7 @@
         <ScrollViewer HorizontalScrollBarVisibility="Disabled">
           <StackPanel Margin="12,0,12,14" Spacing="14">
             <!-- Camera and exposure at a glance -->
-            <Border IsVisible="{Binding Details.HasCamera, FallbackValue=False}" CornerRadius="7" Padding="12"
+            <Border IsVisible="{Binding Details.HasCamera, FallbackValue=False}" CornerRadius="{StaticResource CardCornerRadius}" Padding="12"
                     Background="#12FFFFFF">
               <StackPanel Spacing="10">
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -244,13 +232,16 @@
                 <DataTemplate x:DataType="services:DetailSection">
                   <StackPanel Spacing="6">
                     <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="SemiBold" Foreground="#80FFFFFF" Margin="6,0,0,0" />
-                    <Border CornerRadius="7" Background="#0DFFFFFF" Padding="12,4">
+                    <Border CornerRadius="{StaticResource CardCornerRadius}" Background="#0DFFFFFF" Padding="12,4">
                       <ItemsControl ItemsSource="{Binding Rows}">
                         <ItemsControl.ItemTemplate>
                           <DataTemplate x:DataType="services:InfoRow">
+                            <!-- Same line height, no padding, both top-aligned: label and value share a baseline -->
                             <Grid ColumnDefinitions="78,*" ColumnSpacing="10" Margin="0,5">
-                              <TextBlock Text="{Binding Label}" FontSize="12" Foreground="#8CFFFFFF" />
-                              <SelectableTextBlock Grid.Column="1" Text="{Binding Value}" FontSize="12" TextWrapping="Wrap"
+                              <TextBlock Text="{Binding Label}" FontFamily="{StaticResource InfoRowFont}" FontSize="12" LineHeight="18"
+                                         Padding="0" VerticalAlignment="Top" Foreground="#8CFFFFFF" />
+                              <SelectableTextBlock Grid.Column="1" Text="{Binding Value}" FontFamily="{StaticResource InfoRowFont}"
+                                                   FontSize="12" LineHeight="18" Padding="0" VerticalAlignment="Top" TextWrapping="Wrap"
                                                    Foreground="#F2FFFFFF" SelectionBrush="#662E9BFF" />
                             </Grid>
                           </DataTemplate>
@@ -276,7 +267,7 @@
 
     <!-- Floating toolbar, after the original: shown while the pointer moves, hidden after a short pause -->
     <Border x:Name="ToolbarDock" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,20"
-            Background="#D91C1C1E" CornerRadius="12" Padding="6"
+            Background="#D91C1C1E" CornerRadius="{StaticResource PanelCornerRadius}" Padding="6"
             BorderBrush="#14FFFFFF" BorderThickness="1" BoxShadow="0 8 28 0 #59000000">
       <StackPanel Orientation="Horizontal">
         <Button Classes="viewerTool" ToolTip.Tip="上一张（←）" Click="OnPrevious" IsEnabled="{Binding CanGoBack}">
@@ -313,6 +304,9 @@
         </Button>
         <Button Classes="viewerTool" ToolTip.Tip="旋转（R）" Click="OnRotate">
           <PathIcon Data="{StaticResource Icon.rotate-left}" Width="18" Height="18" />
+        </Button>
+        <Button x:Name="FullScreenButton" Classes="viewerTool" ToolTip.Tip="全屏（F）" Click="OnFullScreen">
+          <PathIcon x:Name="FullScreenIcon" Data="{StaticResource Icon.fullscreen}" Width="18" Height="18" />
         </Button>
         <Border Classes="toolDivider" />
         <Button Classes="viewerTool" ToolTip.Tip="图片信息（I）" Click="OnInfo" Classes.on="{Binding ShowInfo}">

@@ -63,4 +63,12 @@
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
   <Thickness x:Key="TextControlBorderThemeThicknessFocused">1</Thickness>
+  <!-- One radius scale for every floating surface: panels, flyouts, menus and the viewer's dock (Panel), the
+       cards inside them (Card), and their rows and small buttons (Item) -->
+  <CornerRadius x:Key="PanelCornerRadius">10</CornerRadius>
+  <CornerRadius x:Key="CardCornerRadius">7</CornerRadius>
+  <CornerRadius x:Key="ItemCornerRadius">5</CornerRadius>
+  <!-- Label/value rows: one CJK font for both columns (its Latin too), so a Chinese label and a Latin-only value
+       sit on the same baseline; mixed fonts place text differently within the same line height -->
+  <FontFamily x:Key="InfoRowFont">PingFang SC, Microsoft YaHei UI, Noto Sans CJK SC, $Default</FontFamily>
 </ResourceDictionary>
