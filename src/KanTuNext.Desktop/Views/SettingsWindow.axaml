@@ -24,10 +24,21 @@
       </Grid>
     </StackPanel>
 
+    <StackPanel Spacing="8">
+      <TextBlock Text="更新" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+      <Grid ColumnDefinitions="*,Auto">
+        <CheckBox Content="启动后自动检查更新" IsChecked="{Binding CheckUpdatesAutomatically}" VerticalAlignment="Center" />
+        <Button Grid.Column="1" Content="检查更新" Click="OnCheckUpdates" Margin="12,0,0,0" />
+      </Grid>
+      <CheckBox Content="自动下载更新，只需重新启动" IsChecked="{Binding InstallUpdatesAutomatically}"
+                IsEnabled="{Binding CheckUpdatesAutomatically}" />
+    </StackPanel>
+
     <StackPanel Spacing="4">
       <TextBlock Text="关于" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
       <TextBlock Text="{Binding VersionText}" Foreground="{DynamicResource SubTextBrush}" />
-      <TextBlock Text="完全离线运行，不收集、不上传任何数据。" Foreground="{DynamicResource SubTextBrush}" />
+      <TextBlock Text="照片只在本机处理，不收集、不上传任何数据；只有检查更新时会访问 GitHub。" TextWrapping="Wrap"
+                 Foreground="{DynamicResource SubTextBrush}" />
     </StackPanel>
   </StackPanel>
 </Window>

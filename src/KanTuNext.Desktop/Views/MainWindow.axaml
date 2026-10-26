@@ -12,6 +12,53 @@
         ExtendClientAreaTitleBarHeightHint="52"
         WindowDecorations="Full"
         FontSize="13">
+  <!-- macOS menu bar, after the application menu in App.axaml -->
+  <NativeMenu.Menu>
+    <NativeMenu>
+      <NativeMenuItem Header="文件">
+        <NativeMenu>
+          <NativeMenuItem Header="添加常用文件夹…" Gesture="Cmd+O" Click="OnAddFolderMenu" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="关闭窗口" Gesture="Cmd+W" Click="OnCloseMenu" />
+        </NativeMenu>
+      </NativeMenuItem>
+      <NativeMenuItem Header="显示">
+        <NativeMenu>
+          <NativeMenuItem Header="小" Gesture="Cmd+D1" ToggleType="Radio" IsChecked="{Binding IsSmall}" Click="OnSizeMenu" />
+          <NativeMenuItem Header="中" Gesture="Cmd+D2" ToggleType="Radio" IsChecked="{Binding IsMedium}" Click="OnSizeMenu" />
+          <NativeMenuItem Header="大" Gesture="Cmd+D3" ToggleType="Radio" IsChecked="{Binding IsLarge}" Click="OnSizeMenu" />
+          <NativeMenuItem Header="最大" Gesture="Cmd+D4" ToggleType="Radio" IsChecked="{Binding IsLargest}" Click="OnSizeMenu" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="找图" Gesture="Cmd+F" Click="OnFindMenu" />
+          <NativeMenuItem Header="显示简介" Gesture="Cmd+I" IsEnabled="{Binding HasSelection}" Click="OnInfoMenu" />
+        </NativeMenu>
+      </NativeMenuItem>
+      <NativeMenuItem Header="照片">
+        <NativeMenu>
+          <NativeMenuItem Header="打开" Gesture="Cmd+Down" IsEnabled="{Binding HasSelection}" Click="OnOpenMenu" />
+          <NativeMenuItem Header="在访达中显示" Gesture="Cmd+Shift+R" IsEnabled="{Binding HasSelection}" Click="OnRevealMenu" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="标记为「好」" IsEnabled="{Binding HasSelection}" Click="OnTagGoodMenu" />
+          <NativeMenuItem Header="标记为「中」" IsEnabled="{Binding HasSelection}" Click="OnTagNeutralMenu" />
+          <NativeMenuItem Header="标记为「差」" IsEnabled="{Binding HasSelection}" Click="OnTagBadMenu" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="移到废纸篓" Gesture="Cmd+Back" IsEnabled="{Binding HasSelection}" Click="OnTrashMenu" />
+        </NativeMenu>
+      </NativeMenuItem>
+      <NativeMenuItem Header="窗口">
+        <NativeMenu>
+          <NativeMenuItem Header="最小化" Gesture="Cmd+M" Click="OnMinimizeMenu" />
+          <NativeMenuItem Header="缩放" Click="OnZoomMenu" />
+        </NativeMenu>
+      </NativeMenuItem>
+      <NativeMenuItem Header="帮助">
+        <NativeMenu>
+          <NativeMenuItem Header="看图主页" Click="OnHomePageMenu" />
+          <NativeMenuItem Header="检查更新…" Click="OnCheckUpdatesMenu" />
+        </NativeMenu>
+      </NativeMenuItem>
+    </NativeMenu>
+  </NativeMenu.Menu>
   <!-- Measured on the original 2.5.2: 1200×650 window, ~270pt sidebar, 32pt rows, 52pt toolbar -->
   <Grid ColumnDefinitions="270,*" chrome:WindowDecorationProperties.ElementRole="User">
 
@@ -99,7 +146,7 @@
         </Border>
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center"
                     HorizontalAlignment="Right" chrome:WindowDecorationProperties.ElementRole="User">
-          <Button Classes="toolIcon" ToolTip.Tip="简介" IsEnabled="{Binding HasSelection}">
+          <Button x:Name="InfoButton" Classes="toolIcon" ToolTip.Tip="简介" IsEnabled="{Binding HasSelection}">
             <PathIcon Data="{StaticResource Icon.information-outline}" Width="18" Height="18" />
             <Button.Flyout>
               <Flyout Placement="BottomEdgeAlignedRight">

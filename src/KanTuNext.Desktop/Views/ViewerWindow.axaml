@@ -44,6 +44,50 @@
       </Setter>
     </Style>
   </Window.Styles>
+  <!-- macOS menu bar while viewing (the single-key shortcuts stay with the window's key handling) -->
+  <NativeMenu.Menu>
+    <NativeMenu>
+      <NativeMenuItem Header="文件">
+        <NativeMenu>
+          <NativeMenuItem Header="在访达中显示" Gesture="Cmd+Shift+R" Click="OnRevealMenu" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="关闭" Gesture="Cmd+W" Click="OnCloseMenu" />
+        </NativeMenu>
+      </NativeMenuItem>
+      <NativeMenuItem Header="显示">
+        <NativeMenu>
+          <NativeMenuItem Header="放大" Gesture="Cmd+OemPlus" Click="OnZoomInMenu" />
+          <NativeMenuItem Header="缩小" Gesture="Cmd+OemMinus" Click="OnZoomOutMenu" />
+          <NativeMenuItem Header="实际大小" Gesture="Cmd+D1" Click="OnActualSizeMenu" />
+          <NativeMenuItem Header="适应窗口" Gesture="Cmd+D0" Click="OnFitMenu" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="向左旋转" Gesture="Cmd+L" Click="OnRotateLeftMenu" />
+          <NativeMenuItem Header="向右旋转" Gesture="Cmd+R" Click="OnRotateRightMenu" />
+        </NativeMenu>
+      </NativeMenuItem>
+      <NativeMenuItem Header="照片">
+        <NativeMenu>
+          <NativeMenuItem Header="上一张" Gesture="Cmd+Left" IsEnabled="{Binding CanGoBack}" Click="OnPreviousMenu" />
+          <NativeMenuItem Header="下一张" Gesture="Cmd+Right" IsEnabled="{Binding CanGoForward}" Click="OnNextMenu" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="识别文字" Gesture="Cmd+T" IsEnabled="{Binding OcrAvailable}" Click="OnOcrMenu" />
+          <NativeMenuItem Header="播放实况" IsEnabled="{Binding IsLivePhoto}" Click="OnPlayLiveMenu" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="标记为「好」" Click="OnTagGoodMenu" />
+          <NativeMenuItem Header="标记为「中」" Click="OnTagNeutralMenu" />
+          <NativeMenuItem Header="标记为「差」" Click="OnTagBadMenu" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="移到废纸篓" Gesture="Cmd+Back" Click="OnTrashMenu" />
+        </NativeMenu>
+      </NativeMenuItem>
+      <NativeMenuItem Header="窗口">
+        <NativeMenu>
+          <NativeMenuItem Header="最小化" Gesture="Cmd+M" Click="OnMinimizeMenu" />
+          <NativeMenuItem Header="缩放" Click="OnZoomWindowMenu" />
+        </NativeMenu>
+      </NativeMenuItem>
+    </NativeMenu>
+  </NativeMenu.Menu>
 
   <Grid ColumnDefinitions="*,Auto" chrome:WindowDecorationProperties.ElementRole="User">
   <Grid Grid.Column="0">

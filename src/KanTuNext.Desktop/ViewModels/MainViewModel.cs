@@ -202,6 +202,13 @@ public sealed partial class MainViewModel : ObservableObject
 
     public KanTuNext.Core.Settings.AppTheme Theme => _settings.Theme;
 
+    /// <summary>A model for the update window, sharing this window's settings object.</summary>
+    public UpdateViewModel CreateUpdate() => new(_settings, SaveSettings);
+
+    public bool CheckUpdatesAutomatically => _settings.CheckUpdatesAutomatically;
+
+    public string? SkippedVersion => _settings.SkippedVersion;
+
     /// <summary>Main window size and maximized state, restored on launch and saved when it closes.</summary>
     public WindowPlacement? Placement
     {

@@ -21,6 +21,26 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public string VersionText => $"看图 KanTuNext {typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3)}";
 
+    public bool CheckUpdatesAutomatically
+    {
+        get => _settings.CheckUpdatesAutomatically;
+        set
+        {
+            _settings.CheckUpdatesAutomatically = value;
+            _save();
+        }
+    }
+
+    public bool InstallUpdatesAutomatically
+    {
+        get => _settings.InstallUpdatesAutomatically;
+        set
+        {
+            _settings.InstallUpdatesAutomatically = value;
+            _save();
+        }
+    }
+
     public bool IsSystemTheme { get => _settings.Theme == AppTheme.System; set { if (value) SetTheme(AppTheme.System); } }
     public bool IsLightTheme { get => _settings.Theme == AppTheme.Light; set { if (value) SetTheme(AppTheme.Light); } }
     public bool IsDarkTheme { get => _settings.Theme == AppTheme.Dark; set { if (value) SetTheme(AppTheme.Dark); } }

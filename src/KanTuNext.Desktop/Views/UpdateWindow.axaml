@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:KanTuNext.Desktop.ViewModels"
+        x:Class="KanTuNext.Desktop.Views.UpdateWindow" x:DataType="vm:UpdateViewModel"
+        Title="软件更新" Icon="/Assets/kantunext.png"
+        SizeToContent="WidthAndHeight" CanResize="False"
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource PageBrush}" FontSize="13">
+  <Panel Margin="24,20,24,22">
+    <!-- A new version: notes and choices -->
+    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18" Width="520" IsVisible="{Binding IsPrompt}">
+      <Image Source="/Assets/kantunext.png" Width="56" Height="56" VerticalAlignment="Top" />
+      <StackPanel Grid.Column="1" Spacing="10">
+        <TextBlock Text="有新版本的看图" FontWeight="SemiBold" FontSize="15" Foreground="{DynamicResource TextBrush}" />
+        <TextBlock Text="{Binding TitleText}" TextWrapping="Wrap" Foreground="{DynamicResource SubTextBrush}" />
+        <Border Height="200" CornerRadius="6" Padding="12,10" Background="{DynamicResource SearchBrush}">
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <SelectableTextBlock Text="{Binding NotesText}" TextWrapping="Wrap" LineHeight="20"
+                                 Foreground="{DynamicResource TextBrush}" />
+          </ScrollViewer>
+        </Border>
+        <CheckBox Content="以后自动下载更新，只需重新启动" IsChecked="{Binding InstallAutomatically}" IsVisible="{Binding CanInstall}" />
+        <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,0">
+          <Button Content="跳过这个版本" Click="OnSkip" />
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
+            <Button Content="以后再说" Click="OnLater" />
+            <Button Content="安装更新" Classes="accent" Click="OnInstall" IsDefault="True" IsVisible="{Binding CanInstall}" />
+            <Button Content="前往下载页" Classes="accent" Click="OnReleasePage" IsVisible="{Binding !CanInstall}" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Grid>
+
+    <!-- Checking / downloading / unpacking / ready / up to date / failed -->
+    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18" Width="400" IsVisible="{Binding IsProgress}">
+      <Image Source="/Assets/kantunext.png" Width="56" Height="56" VerticalAlignment="Top" />
+      <StackPanel Grid.Column="1" Spacing="12">
+        <TextBlock Text="{Binding StageText}" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextBrush}" />
+        <ProgressBar Height="6" MinHeight="6" CornerRadius="3" Minimum="0" Maximum="1" Value="{Binding Progress}"
+                     IsIndeterminate="{Binding IsIndeterminate}" IsVisible="{Binding !ShowDismiss}" />
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" MinHeight="32">
+          <TextBlock Text="{Binding DetailText}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"
+                     Foreground="{DynamicResource SubTextBrush}" />
+          <Panel Grid.Column="1" VerticalAlignment="Bottom">
+            <Button Content="取消" Click="OnCancel" IsVisible="{Binding ShowCancel}" />
+            <Button Content="重新启动" Classes="accent" Click="OnRestart" IsVisible="{Binding ShowRestart}" IsDefault="{Binding ShowRestart}" />
+            <Button Content="好" Classes="accent" Click="OnLater" IsVisible="{Binding ShowDismiss}" IsDefault="{Binding ShowDismiss}" />
+          </Panel>
+        </Grid>
+      </StackPanel>
+    </Grid>
+  </Panel>
+</Window>

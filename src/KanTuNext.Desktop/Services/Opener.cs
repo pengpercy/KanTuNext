@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace KanTuNext.Desktop.Services;
 
-/// <summary>Opens a file with the system's default application (e.g. a video in the default player).</summary>
+/// <summary>Opens a file or web address with the system's default application (e.g. a video in the default player).</summary>
 internal static class Opener
 {
     public static void Open(string path)

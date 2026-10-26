@@ -21,6 +21,15 @@ public sealed class AppSettings
     /// <summary>The main window's size and maximized state when the app last quit (it always opens centred).</summary>
     public WindowPlacement? MainWindow { get; set; }
 
+    /// <summary>Look for a new version on GitHub a few seconds after launch (the only network access).</summary>
+    public bool CheckUpdatesAutomatically { get; set; } = true;
+
+    /// <summary>Download and unpack a found update in the background, then only ask to restart.</summary>
+    public bool InstallUpdatesAutomatically { get; set; }
+
+    /// <summary>A release tag the user chose to skip (「跳过这个版本」); not offered again by automatic checks.</summary>
+    public string? SkippedVersion { get; set; }
+
     public static string FilePath => Path.Combine(AppPaths.DataDirectory, "settings.json");
 
     public static AppSettings Load()

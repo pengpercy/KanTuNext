@@ -62,6 +62,9 @@ public sealed class ThumbnailGrid : Control
     /// <summary>Raised on double-click or Enter with the chosen file (opens the viewer).</summary>
     public event Action<MediaFile>? Opened;
 
+    /// <summary>Raises <see cref="Opened"/> as a double-click would (menu 「打开」).</summary>
+    public void OpenItem(MediaFile file) => Opened?.Invoke(file);
+
     /// <summary>The selected file changed (null: nothing selected).</summary>
     public event Action<MediaFile?>? SelectionChanged;
 

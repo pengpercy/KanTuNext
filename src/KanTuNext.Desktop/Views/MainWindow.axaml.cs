@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using KanTuNext.Core.Library;
 using KanTuNext.Core.Settings;
 using KanTuNext.Desktop.Services;
 using KanTuNext.Desktop.ViewModels;
@@ -141,6 +142,54 @@ public partial class MainWindow : Window
     }
 
     private void OnSettings(object? sender, RoutedEventArgs e) => ShowSettings();
+
+    public void CheckForUpdates()
+    {
+        if (DataContext is MainViewModel vm) UpdateWindow.CheckInteractively(vm, this);
+    }
+
+    // macOS menu bar
+    private MainViewModel? Model => DataContext as MainViewModel;
+    private void OnAddFolderMenu(object? sender, EventArgs e) => OnAddFolder(sender, new RoutedEventArgs());
+    private void OnCloseMenu(object? sender, EventArgs e) => Close();
+    private void OnSizeMenu(object? sender, EventArgs e)
+    {
+        if (Model is not { } vm || sender is not NativeMenuItem item) return;
+        vm.Size = item.Header switch { "中" => ThumbnailSize.Medium, "大" => ThumbnailSize.Large, "最大" => ThumbnailSize.Largest, _ => ThumbnailSize.Small };
+    }
+    private void OnFindMenu(object? sender, EventArgs e)
+    {
+        SearchBox.Focus();
+        SearchBox.SelectAll();
+    }
+    private void OnInfoMenu(object? sender, EventArgs e)
+    {
+        if (InfoButton.IsEnabled) InfoButton.Flyout?.ShowAt(InfoButton);
+    }
+    private void OnOpenMenu(object? sender, EventArgs e)
+    {
+        if (Model?.SelectedFile is { } file) Grid.OpenItem(file);
+    }
+    private void OnRevealMenu(object? sender, EventArgs e)
+    {
+        if (Model?.SelectedFile is { } file) Reveal.InFileManager(file.Path);
+    }
+    private void OnTagGoodMenu(object? sender, EventArgs e) => TagSelected(PhotoTag.Good);
+    private void OnTagNeutralMenu(object? sender, EventArgs e) => TagSelected(PhotoTag.Neutral);
+    private void OnTagBadMenu(object? sender, EventArgs e) => TagSelected(PhotoTag.Bad);
+    private void TagSelected(PhotoTag tag)
+    {
+        if (Model is { SelectedFile: { } file } vm) vm.ToggleTag(file, tag);
+    }
+    private void OnTrashMenu(object? sender, EventArgs e)
+    {
+        if (Model is { SelectedFile: { } file } vm) vm.Delete(file);
+    }
+    private void OnMinimizeMenu(object? sender, EventArgs e) => WindowState = WindowState.Minimized;
+    private void OnZoomMenu(object? sender, EventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    private void OnHomePageMenu(object? sender, EventArgs e) => Opener.Open("https://github.com/pengpercy/KanTuNext");
+    private void OnCheckUpdatesMenu(object? sender, EventArgs e) => CheckForUpdates();
 
     private void OnToggleFolder(object? sender, RoutedEventArgs e)
     {

@@ -11,9 +11,9 @@ internal static class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            // Avalonia would register the process as "Avalonia Application" before App.axaml loads;
-            // leave the name to CFBundleName instead.
-            .With(new MacOSPlatformOptions { DisableSetProcessName = true })
+            // Avalonia would register the process as "Avalonia Application" before App.axaml loads; leave the
+            // name to CFBundleName. Its default app-menu items are English-only; App.axaml has Chinese ones.
+            .With(new MacOSPlatformOptions { DisableSetProcessName = true, DisableDefaultApplicationMenuItems = true })
 #pragma warning disable AVALONIA_X11_CSD
             // Without drawn decorations X11 ignores ExtendClientAreaToDecorationsHint and the WM stacks its
             // own title bar on ours. WmClass must match StartupWMClass in kantunext.desktop for dock grouping.

@@ -11,10 +11,20 @@
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>
-  <!-- macOS application menu (other platforms use the toolbar's settings button) -->
+  <!-- macOS application menu (other platforms use the toolbar's settings button). Avalonia's own Hide / Hide
+       Others / Show All / Quit items are English-only, so they are turned off in Program.cs and provided here. -->
   <NativeMenu.Menu>
     <NativeMenu>
+      <NativeMenuItem Header="关于看图" Click="OnSettingsMenu" />
+      <NativeMenuItem Header="检查更新…" Click="OnCheckUpdatesMenu" />
+      <NativeMenuItemSeparator />
       <NativeMenuItem Header="设置…" Gesture="Cmd+OemComma" Click="OnSettingsMenu" />
+      <NativeMenuItemSeparator />
+      <NativeMenuItem Header="隐藏看图" Gesture="Cmd+H" Click="OnHideMenu" />
+      <NativeMenuItem Header="隐藏其他" Gesture="Cmd+Alt+H" Click="OnHideOthersMenu" />
+      <NativeMenuItem Header="全部显示" Click="OnShowAllMenu" />
+      <NativeMenuItemSeparator />
+      <NativeMenuItem Header="退出看图" Gesture="Cmd+Q" Click="OnQuitMenu" />
     </NativeMenu>
   </NativeMenu.Menu>
   <Application.Styles>

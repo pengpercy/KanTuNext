@@ -142,6 +142,30 @@ public partial class ViewerWindow : Window
             Model?.ToggleTag(tag);
     }
 
+    // macOS menu bar
+    private void OnRevealMenu(object? sender, EventArgs e)
+    {
+        if (Model?.Current is { } file) Reveal.InFileManager(file.Path);
+    }
+    private void OnCloseMenu(object? sender, EventArgs e) => Close();
+    private void OnZoomInMenu(object? sender, EventArgs e) => Viewer.ZoomBy(1.25);
+    private void OnZoomOutMenu(object? sender, EventArgs e) => Viewer.ZoomBy(0.8);
+    private void OnActualSizeMenu(object? sender, EventArgs e) => ActualSize();
+    private void OnFitMenu(object? sender, EventArgs e) => Viewer.FitToView();
+    private void OnRotateLeftMenu(object? sender, EventArgs e) => Viewer.Rotate(-1);
+    private void OnRotateRightMenu(object? sender, EventArgs e) => Viewer.Rotate(1);
+    private void OnPreviousMenu(object? sender, EventArgs e) => _ = Model?.GoBackAsync();
+    private void OnNextMenu(object? sender, EventArgs e) => _ = Model?.GoForwardAsync();
+    private void OnOcrMenu(object? sender, EventArgs e) => Model?.ToggleOcr();
+    private void OnPlayLiveMenu(object? sender, EventArgs e) => _ = Model?.PlayLiveAsync();
+    private void OnTagGoodMenu(object? sender, EventArgs e) => Model?.ToggleTag(KanTuNext.Core.Library.PhotoTag.Good);
+    private void OnTagNeutralMenu(object? sender, EventArgs e) => Model?.ToggleTag(KanTuNext.Core.Library.PhotoTag.Neutral);
+    private void OnTagBadMenu(object? sender, EventArgs e) => Model?.ToggleTag(KanTuNext.Core.Library.PhotoTag.Bad);
+    private void OnTrashMenu(object? sender, EventArgs e) => _ = DeleteAsync();
+    private void OnMinimizeMenu(object? sender, EventArgs e) => WindowState = WindowState.Minimized;
+    private void OnZoomWindowMenu(object? sender, EventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
     private async Task DeleteAsync()
     {
         if (Model is not { } vm) return;
