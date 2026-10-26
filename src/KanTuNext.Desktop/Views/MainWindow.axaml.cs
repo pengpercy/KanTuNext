@@ -44,13 +44,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private (Size Size, PixelPoint Position) _normal, _beforeBurst;
+    private Size _normal, _beforeBurst;
     private long _normalChangedAt;
 
     /// <summary>
-    /// Applies the saved placement before the window is shown: the size always, the position only if its title
-    /// bar still lands on a screen (monitors come and go), maximized once open. Then tracks the normal bounds so
-    /// closing while maximized still saves the size to restore to.
+    /// Applies the saved size before the window is shown (it always opens centred), maximized once open. Then
+    /// tracks the normal size so closing while maximized still saves the size to restore to.
     /// </summary>
     public void RestorePlacement(WindowPlacement? placement)
     {
@@ -58,49 +57,41 @@ public partial class MainWindow : Window
         {
             Width = Math.Max(MinWidth, placement.Width);
             Height = Math.Max(MinHeight, placement.Height);
-            if (placement is { X: { } x, Y: { } y } && Screens.All.Any(s => s.WorkingArea.Contains(new PixelPoint(x + 80, y + 16))))
-            {
-                WindowStartupLocation = WindowStartupLocation.Manual;
-                Position = new PixelPoint(x, y);
-            }
         }
         var maximize = placement?.Maximized == true;
         Opened += (_, _) =>
         {
-            _normal = _beforeBurst = (ClientSize, Position);
+            _normal = _beforeBurst = ClientSize;
             if (maximize) WindowState = WindowState.Maximized;
         };
-        Resized += (_, _) => TrackNormal(ClientSize, _normal.Position);
-        PositionChanged += (_, e) => TrackNormal(_normal.Size, e.Point);
+        Resized += (_, _) => TrackNormal(ClientSize);
         PropertyChanged += (_, e) =>
         {
             // macOS reports the zoom animation's sizes while the state still reads Normal; a maximize or full
-            // screen right after a burst of changes means that burst was the animation, so undo it
+            // screen right after a burst of resizes means that burst was the animation, so undo it
             if (e.Property == WindowStateProperty && WindowState is WindowState.Maximized or WindowState.FullScreen
                 && Environment.TickCount64 - _normalChangedAt < 1500)
                 _normal = _beforeBurst;
         };
         Closing += (_, _) =>
         {
-            if (DataContext is not MainViewModel vm || _normal.Size.Width <= 0) return;
+            if (DataContext is not MainViewModel vm || _normal.Width <= 0) return;
             vm.Placement = new WindowPlacement
             {
-                Width = Math.Round(_normal.Size.Width),
-                Height = Math.Round(_normal.Size.Height),
-                X = _normal.Position.X,
-                Y = _normal.Position.Y,
+                Width = Math.Round(_normal.Width),
+                Height = Math.Round(_normal.Height),
                 Maximized = WindowState == WindowState.Maximized,
             };
         };
     }
 
-    /// <summary>Records normal-state bounds; changes less than half a second apart form one burst.</summary>
-    private void TrackNormal(Size size, PixelPoint position)
+    /// <summary>Records the normal-state size; resizes less than half a second apart form one burst.</summary>
+    private void TrackNormal(Size size)
     {
         if (WindowState != WindowState.Normal) return;
         var now = Environment.TickCount64;
         if (now - _normalChangedAt > 500) _beforeBurst = _normal;
-        _normal = (size, position);
+        _normal = size;
         _normalChangedAt = now;
     }
 

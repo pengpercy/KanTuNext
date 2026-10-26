@@ -18,7 +18,7 @@ public sealed class AppSettings
     /// <summary>Follow the system, or force light/dark.</summary>
     public AppTheme Theme { get; set; } = AppTheme.System;
 
-    /// <summary>The main window's size, position and maximized state when the app last quit.</summary>
+    /// <summary>The main window's size and maximized state when the app last quit (it always opens centred).</summary>
     public WindowPlacement? MainWindow { get; set; }
 
     public static string FilePath => Path.Combine(AppPaths.DataDirectory, "settings.json");
@@ -47,15 +47,13 @@ public sealed class AppSettings
 }
 
 /// <summary>
-/// A window's normal (restored) bounds — size in DIPs, position in screen pixels — plus whether it was maximized.
-/// The normal bounds are kept while maximized, so un-maximizing after a restart returns to them.
+/// A window's normal (restored) size in DIPs, plus whether it was maximized. The normal size is kept while
+/// maximized, so un-maximizing after a restart returns to it.
 /// </summary>
 public sealed class WindowPlacement
 {
     public double Width { get; set; }
     public double Height { get; set; }
-    public int? X { get; set; }
-    public int? Y { get; set; }
     public bool Maximized { get; set; }
 }
 
