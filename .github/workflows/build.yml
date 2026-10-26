@@ -41,8 +41,8 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates curl git clang lld zlib1g-dev libicu66
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           # Pinned: rolling forward to the newest feature band has picked versions not yet downloadable
           dotnet-version: '10.0.402'
@@ -51,7 +51,7 @@ jobs:
       - name: Codec cache
         id: codecs
         if: ${{ !startsWith(matrix.runtime, 'osx-') }}
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .cache/native/${{ matrix.runtime }}
           key: codecs-${{ matrix.runtime }}-${{ hashFiles('build/native/**') }}
@@ -60,9 +60,14 @@ jobs:
         run: build/native/linux-deps.sh && build/native/build-codecs.sh .cache/native/${{ matrix.runtime }}
       - name: MSVC environment
         if: startsWith(matrix.runtime, 'win-') && steps.codecs.outputs.cache-hit != 'true'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: ${{ matrix.runtime == 'win-arm64' && 'arm64' || 'x64' }}
+        shell: pwsh
+        run: |
+          # vcvarsall's environment exported to later steps (ilammy/msvc-dev-cmd is unmaintained and still on Node 20)
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.* -property installationPath
+          $arch = '${{ matrix.runtime }}' -eq 'win-arm64' ? 'arm64' : 'x64'
+          cmd /c "`"$vs\VC\Auxiliary\Build\vcvarsall.bat`" $arch >nul && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') { "$($Matches[1])=$($Matches[2])" >> $env:GITHUB_ENV }
+          }
       - name: Build codecs (Windows)
         if: startsWith(matrix.runtime, 'win-') && steps.codecs.outputs.cache-hit != 'true'
         shell: pwsh
@@ -74,7 +79,7 @@ jobs:
           }
           build/native/build-codecs.ps1 .cache/native/${{ matrix.runtime }}
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .nuget/packages
           key: nuget-${{ matrix.package || matrix.runtime }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
@@ -92,7 +97,7 @@ jobs:
           mkdir -p symbols
           find publish -maxdepth 1 \( -name '*.dSYM' -o -name '*.dbg' -o -name '*.pdb' \) -exec mv {} symbols/ \;
           du -sh publish/*
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: symbols.${{ matrix.package || matrix.runtime }}
           path: symbols/
@@ -101,7 +106,7 @@ jobs:
       - name: Tar (keeps the executable bit)
         shell: bash
         run: tar -cf kantunext.tar -C publish .
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: kantunext.${{ matrix.package || matrix.runtime }}
           path: kantunext.tar

@@ -23,8 +23,8 @@ jobs:
       matrix:
         runtime: [win-x64, win-arm64, win7-x64]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: kantunext.${{ matrix.runtime }}
           path: build
@@ -37,7 +37,7 @@ jobs:
           New-Item -ItemType Directory -Force build\KanTuNext | Out-Null
           tar -xf build\kantunext.tar -C build\KanTuNext
           ./build/scripts/package.win.ps1
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: package.${{ matrix.runtime }}
           path: build/KanTuNext_*.zip
@@ -59,7 +59,7 @@ jobs:
       APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Import signing certificate
         if: env.MACOS_CERT_P12_BASE64 != ''
         run: |
@@ -71,7 +71,7 @@ jobs:
           security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
           security list-keychains -d user -s "$KEYCHAIN"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$MACOS_KEYCHAIN_PASSWORD" "$KEYCHAIN"
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: kantunext.osx-*
           path: publish
@@ -93,7 +93,7 @@ jobs:
             xcrun notarytool submit "$DMG" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --wait
             xcrun stapler staple "$DMG"
           done
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: package.macos
           path: |
@@ -118,8 +118,8 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates curl git file dpkg-dev rpm libtesseract4 patchelf
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: kantunext.${{ matrix.runtime }}
           path: build
@@ -133,7 +133,7 @@ jobs:
           mkdir -p build/KanTuNext
           tar -xf build/kantunext.tar -C build/KanTuNext
           ./build/scripts/package.linux.sh
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: package.${{ matrix.runtime }}
           path: |

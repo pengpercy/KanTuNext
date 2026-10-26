@@ -30,13 +30,13 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           # Pinned: rolling forward to the newest feature band has picked versions not yet downloadable
           dotnet-version: '10.0.402'
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .nuget/packages
           key: nuget-test-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
