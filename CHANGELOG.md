@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- 主窗口记住上次的大小、位置和最大化状态；保存的位置已不在任何屏幕上时（如拔掉了外接显示器），按原大小居中打开。
+
 ## 0.1.1
 
 - Linux 支持 TIFF：安装包自带 libtiff（内含 libjpeg-turbo），支持 LZW、Deflate、PackBits、JPEG、传真等常见压缩，以及调色板、灰度、16 位和带透明的图片；多页 TIFF 显示第一页。

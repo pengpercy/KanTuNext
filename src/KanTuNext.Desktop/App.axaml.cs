@@ -25,7 +25,9 @@ public class App : Application
         {
             var vm = new MainViewModel();
             SettingsViewModel.Apply(vm.Theme);
-            desktop.MainWindow = new MainWindow { DataContext = vm };
+            var window = new MainWindow { DataContext = vm };
+            window.RestorePlacement(vm.Placement);
+            desktop.MainWindow = window;
         }
         base.OnFrameworkInitializationCompleted();
     }

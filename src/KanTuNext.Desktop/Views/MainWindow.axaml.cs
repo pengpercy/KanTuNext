@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using KanTuNext.Core.Settings;
 using KanTuNext.Desktop.Services;
 using KanTuNext.Desktop.ViewModels;
 
@@ -41,6 +42,66 @@ public partial class MainWindow : Window
             // A theme switch relays out the title bar after ActualThemeVariantChanged; post the update.
             ActualThemeVariantChanged += (_, _) => Dispatcher.UIThread.Post(CenterTrafficLights, DispatcherPriority.Background);
         }
+    }
+
+    private (Size Size, PixelPoint Position) _normal, _beforeBurst;
+    private long _normalChangedAt;
+
+    /// <summary>
+    /// Applies the saved placement before the window is shown: the size always, the position only if its title
+    /// bar still lands on a screen (monitors come and go), maximized once open. Then tracks the normal bounds so
+    /// closing while maximized still saves the size to restore to.
+    /// </summary>
+    public void RestorePlacement(WindowPlacement? placement)
+    {
+        if (placement is { Width: > 0, Height: > 0 })
+        {
+            Width = Math.Max(MinWidth, placement.Width);
+            Height = Math.Max(MinHeight, placement.Height);
+            if (placement is { X: { } x, Y: { } y } && Screens.All.Any(s => s.WorkingArea.Contains(new PixelPoint(x + 80, y + 16))))
+            {
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                Position = new PixelPoint(x, y);
+            }
+        }
+        var maximize = placement?.Maximized == true;
+        Opened += (_, _) =>
+        {
+            _normal = _beforeBurst = (ClientSize, Position);
+            if (maximize) WindowState = WindowState.Maximized;
+        };
+        Resized += (_, _) => TrackNormal(ClientSize, _normal.Position);
+        PositionChanged += (_, e) => TrackNormal(_normal.Size, e.Point);
+        PropertyChanged += (_, e) =>
+        {
+            // macOS reports the zoom animation's sizes while the state still reads Normal; a maximize or full
+            // screen right after a burst of changes means that burst was the animation, so undo it
+            if (e.Property == WindowStateProperty && WindowState is WindowState.Maximized or WindowState.FullScreen
+                && Environment.TickCount64 - _normalChangedAt < 1500)
+                _normal = _beforeBurst;
+        };
+        Closing += (_, _) =>
+        {
+            if (DataContext is not MainViewModel vm || _normal.Size.Width <= 0) return;
+            vm.Placement = new WindowPlacement
+            {
+                Width = Math.Round(_normal.Size.Width),
+                Height = Math.Round(_normal.Size.Height),
+                X = _normal.Position.X,
+                Y = _normal.Position.Y,
+                Maximized = WindowState == WindowState.Maximized,
+            };
+        };
+    }
+
+    /// <summary>Records normal-state bounds; changes less than half a second apart form one burst.</summary>
+    private void TrackNormal(Size size, PixelPoint position)
+    {
+        if (WindowState != WindowState.Normal) return;
+        var now = Environment.TickCount64;
+        if (now - _normalChangedAt > 500) _beforeBurst = _normal;
+        _normal = (size, position);
+        _normalChangedAt = now;
     }
 
     /// <summary>Right-click menu on a thumbnail: put back (最近删除) or reveal / mark / delete.</summary>

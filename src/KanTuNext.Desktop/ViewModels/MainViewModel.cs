@@ -202,6 +202,17 @@ public sealed partial class MainViewModel : ObservableObject
 
     public KanTuNext.Core.Settings.AppTheme Theme => _settings.Theme;
 
+    /// <summary>Main window placement, restored on launch and saved when it closes.</summary>
+    public WindowPlacement? Placement
+    {
+        get => _settings.MainWindow;
+        set
+        {
+            _settings.MainWindow = value;
+            SaveSettings();
+        }
+    }
+
     private void SaveSettings()
     {
         try { _settings.Save(); }

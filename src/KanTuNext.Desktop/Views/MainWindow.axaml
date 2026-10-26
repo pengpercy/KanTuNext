@@ -6,7 +6,7 @@
         xmlns:chrome="clr-namespace:Avalonia.Controls.Chrome;assembly=Avalonia.Controls"
         x:Class="KanTuNext.Desktop.Views.MainWindow" x:DataType="vm:MainViewModel"
         Title="看图" Icon="/Assets/kantunext.png"
-        Width="1200" Height="650" MinWidth="820" MinHeight="480"
+        Width="1200" Height="650" MinWidth="820" MinHeight="480" WindowStartupLocation="CenterScreen"
         Background="{DynamicResource PageBrush}"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaTitleBarHeightHint="52"

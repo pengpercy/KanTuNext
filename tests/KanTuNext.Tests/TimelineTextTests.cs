@@ -45,4 +45,19 @@ public sealed class AppSettingsTests : IDisposable
         Assert.Equal(ThumbnailSize.Large, back.ThumbnailSize);
         Assert.Equal(KanTuNext.Core.Settings.AppTheme.Dark, back.Theme);
     }
+
+    [Fact]
+    public void RoundTripsWindowPlacement()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            new KanTuNext.Core.Settings.AppSettings
+            {
+                MainWindow = new() { Width = 1440, Height = 900, X = -1200, Y = 80, Maximized = true },
+            },
+            KanTuNext.Core.Settings.SettingsJson.Default.AppSettings);
+        var back = System.Text.Json.JsonSerializer.Deserialize(json, KanTuNext.Core.Settings.SettingsJson.Default.AppSettings)!.MainWindow!;
+        Assert.Equal((1440d, 900d, -1200, 80, true), (back.Width, back.Height, back.X, back.Y, back.Maximized));
+        // Settings written before placement existed load without one
+        Assert.Null(System.Text.Json.JsonSerializer.Deserialize("{\"theme\":\"Dark\"}", KanTuNext.Core.Settings.SettingsJson.Default.AppSettings)!.MainWindow);
+    }
 }
