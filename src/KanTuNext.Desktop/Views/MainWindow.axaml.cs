@@ -26,12 +26,14 @@ public partial class MainWindow : Window
             // then fall behind the main window, which macOS raises again when it finishes processing the click
             Dispatcher.UIThread.Post(() => ViewerWindow.Open(this, images, images.IndexOf(file), vm.LiveText), DispatcherPriority.Background);
         };
-        if (!WindowChrome.CaptionButtonsOnLeft)
+        if (WindowChrome.CaptionButtonsOnLeft) SidebarToggle.IsVisible = true;
+        else SidebarMenuButton.IsVisible = true;
+        // Dragging the divider: the toggle follows it (a slide places it frame by frame instead)
+        Sidebar.SizeChanged += (_, e) =>
         {
-            SidebarToggle.IsVisible = false;
-            SidebarCollapsedToggle.IsVisible = false;
-            SidebarMenuButton.IsVisible = true;
-        }
+            if (Sidebar.HorizontalAlignment == Avalonia.Layout.HorizontalAlignment.Stretch && Sidebar.IsVisible)
+                PlaceSidebarChrome(e.NewSize.Width);
+        };
         // Keep the toolbar's right-hand icons clear of the drawn min/max/close buttons
         if (WindowChrome.HasClientCaptionButtons)
             Toolbar.Margin = new Thickness(Toolbar.Margin.Left, 0, WindowChrome.CaptionButtonsWidth + 12, 0);
@@ -172,8 +174,7 @@ public partial class MainWindow : Window
         Sidebar.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
         SidebarColumn.MinWidth = visible ? 160 : 0;
         SidebarColumn.Width = new GridLength(visible ? SidebarWidth(vm) : 0);
-        UpdateSidebarButtons(visible);
-        SetToolbarLeft(visible ? 0 : 1);
+        PlaceSidebarChrome(visible ? SidebarWidth(vm) : 0);
     }
 
     /// <summary>
@@ -192,9 +193,6 @@ public partial class MainWindow : Window
         Sidebar.Width = width;
         Sidebar.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
         SidebarColumn.MinWidth = 0;
-        // When opening, move the toggle into the sidebar immediately. When closing, leave it there until the
-        // divider is gone; ApplySidebar then exposes the collapsed toggle in the content toolbar.
-        if (visible) UpdateSidebarButtons(true);
         var start = -1d;
         void Step(TimeSpan now)
         {
@@ -204,7 +202,7 @@ public partial class MainWindow : Window
             var eased = 1 - Math.Pow(1 - t, 3);
             var column = from + (to - from) * eased;
             SidebarColumn.Width = new GridLength(column);
-            SetToolbarLeft(1 - column / width);
+            PlaceSidebarChrome(column);
             if (t < 1) RequestAnimationFrame(Step);
             else ApplySidebar(vm);
         }
@@ -213,21 +211,23 @@ public partial class MainWindow : Window
 
     private static double SidebarWidth(MainViewModel vm) => Math.Clamp(vm.SidebarWidth, 160, 400);
 
-    private void UpdateSidebarButtons(bool sidebarVisible)
-    {
-        if (!WindowChrome.CaptionButtonsOnLeft) return;
-        SidebarToggle.IsVisible = sidebarVisible;
-        SidebarCollapsedToggle.IsVisible = !sidebarVisible;
-    }
+    private const double ToggleSize = 26, ToggleGap = 10;
 
     /// <summary>
-    /// Without the sidebar the window buttons (top-left) or the hamburger sit over the toolbar: start it after them.
+    /// Lays out the top-left corner for a sidebar column of the given width. The toggle sits just inside the
+    /// divider and is pushed left by it until it rests after the window buttons (macOS traffic lights); the
+    /// toolbar starts after the divider, or after the toggle or hamburger once the divider has passed them.
     /// </summary>
-    private void SetToolbarLeft(double collapsed)
+    private void PlaceSidebarChrome(double column)
     {
-        var clear = OperatingSystem.IsMacOS() ? 84 : WindowChrome.CaptionButtonsOnLeft ? 0 : 48;
-        var left = 24 + Math.Max(0, clear - 24) * Math.Clamp(collapsed, 0, 1);
-        Toolbar.Margin = new Thickness(left, 0, Toolbar.Margin.Right, 0);
+        double rest = 48; // after the hamburger
+        if (WindowChrome.CaptionButtonsOnLeft)
+        {
+            var toggleRest = OperatingSystem.IsMacOS() ? 84 : 24;
+            SidebarToggle.Margin = new Thickness(Math.Max(column - ToggleGap - ToggleSize, toggleRest), 13, 0, 0);
+            rest = toggleRest + ToggleSize + ToggleGap;
+        }
+        Toolbar.Margin = new Thickness(Math.Max(24, rest - column), 0, Toolbar.Margin.Right, 0);
     }
 
     private void ToggleSidebar()

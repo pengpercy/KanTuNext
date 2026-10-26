@@ -89,9 +89,11 @@
     <Setter Property="VerticalContentAlignment" Value="Center" />
   </Style>
 
-  <!-- Drawn caption buttons (Windows, Linux CSD): three square 46px buttons flush with the corner;
+  <!-- Drawn caption buttons (Windows, Linux CSD): three 46px buttons flush with the corner, as tall as the
+       window's title bar (Fluent fixes them at 30 and centres them in taller bars);
        WindowChrome clears the template's spacing and insets. Keep in sync with CaptionButtonsWidth (138). -->
   <Style Selector="Button#PART_MinimizeButton, Button#PART_MaximizeButton, Button#PART_CloseButton">
+    <Setter Property="Height" Value="NaN" />
     <Setter Property="Width" Value="46" />
     <Setter Property="MinWidth" Value="46" />
     <Setter Property="Padding" Value="0" />

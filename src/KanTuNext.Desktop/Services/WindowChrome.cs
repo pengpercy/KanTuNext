@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Chrome;
 using Avalonia.VisualTree;
@@ -103,10 +104,21 @@ internal static class WindowChrome
                         wrapper.Margin = default;
                     break;
                 // Windows extended into the title bar draw their own title; hide the template's duplicate.
-                case "PART_TitleTextPanel" when TopLevel.GetTopLevel(panel) is Window { ExtendClientAreaToDecorationsHint: true }:
+                case "PART_TitleTextPanel" when OwnerWindow(panel) is { ExtendClientAreaToDecorationsHint: true }:
                     foreach (var text in panel.Children.OfType<TextBlock>()) text.IsVisible = false;
                     break;
             }
         });
+    }
+
+    /// <summary>
+    /// The window a decorations part belongs to. Avalonia 12.1 hosts the decorations beside the window under an
+    /// internal TopLevelHost, not inside it, so TopLevel.GetTopLevel finds no window from them.
+    /// </summary>
+    private static Window? OwnerWindow(Visual visual)
+    {
+        var root = visual;
+        while (root.GetVisualParent() is { } parent) root = parent;
+        return root as Window ?? root.GetVisualChildren().OfType<Window>().FirstOrDefault();
     }
 }

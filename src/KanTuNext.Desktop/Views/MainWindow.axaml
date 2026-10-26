@@ -95,15 +95,9 @@
     <!-- Sidebar -->
     <Border x:Name="Sidebar" Grid.Column="0" Background="{DynamicResource SidebarBrush}">
       <DockPanel>
-        <!-- Traffic lights / drag area above the list; the toggle stays on the sidebar side of its divider -->
+        <!-- Traffic lights / drag area above the list -->
         <Border DockPanel.Dock="Top" Height="44" Background="Transparent"
-                chrome:WindowDecorationProperties.ElementRole="TitleBar">
-          <Button x:Name="SidebarToggle" Classes="toolIcon" HorizontalAlignment="Right" VerticalAlignment="Center"
-                  Margin="0,0,10,0" ToolTip.Tip="{Binding SidebarMenuText}" Click="OnToggleSidebar"
-                  chrome:WindowDecorationProperties.ElementRole="User">
-            <PathIcon Data="{StaticResource Icon.dock-left}" Width="18" Height="18" />
-          </Button>
-        </Border>
+                chrome:WindowDecorationProperties.ElementRole="TitleBar" />
         <ScrollViewer HorizontalScrollBarVisibility="Disabled">
           <ItemsControl ItemsSource="{Binding Sections}" Margin="0,0,0,12">
             <ItemsControl.ItemTemplate>
@@ -157,11 +151,6 @@
             chrome:WindowDecorationProperties.ElementRole="TitleBar">
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" HorizontalAlignment="Left"
                     chrome:WindowDecorationProperties.ElementRole="User">
-          <!-- Only visible while the sidebar is collapsed, when there is no divider to stay left of -->
-          <Button x:Name="SidebarCollapsedToggle" Classes="toolIcon" IsVisible="False"
-                  ToolTip.Tip="{Binding SidebarMenuText}" Click="OnToggleSidebar">
-            <PathIcon Data="{StaticResource Icon.dock-left}" Width="18" Height="18" />
-          </Button>
           <Button Classes="toolIcon" IsEnabled="False" ToolTip.Tip="返回">
             <PathIcon Data="{StaticResource Icon.chevron-left}" Width="20" Height="20" />
           </Button>
@@ -263,6 +252,14 @@
             ToolTip.Tip="{Binding SidebarMenuText}" Click="OnToggleSidebar"
             chrome:WindowDecorationProperties.ElementRole="User">
       <PathIcon Data="{StaticResource Icon.menu}" Width="18" Height="18" />
+    </Button>
+    <!-- Where the window buttons are on the left: one toggle just inside the divider. The divider pushes it
+         left as the sidebar closes until it rests after the window buttons (PlaceSidebarToggle). -->
+    <Button x:Name="SidebarToggle" Grid.ColumnSpan="2" Classes="toolIcon" IsVisible="False"
+            HorizontalAlignment="Left" VerticalAlignment="Top"
+            ToolTip.Tip="{Binding SidebarMenuText}" Click="OnToggleSidebar"
+            chrome:WindowDecorationProperties.ElementRole="User">
+      <PathIcon Data="{StaticResource Icon.dock-left}" Width="18" Height="18" />
     </Button>
   </Grid>
 </Window>
