@@ -11,6 +11,7 @@ namespace KanTuNext.Desktop.Views;
 /// Zoom is "screen points per image pixel": 1 is 1:1 the way macOS Preview means it (a 600px photo is 600pt
 /// wide, so it isn't shrunk to half on a Retina display).
 /// In fit mode the image follows the view size; any manual zoom or pan leaves fit mode.
+/// Moving to another photo cross-fades from the old one, with a short slide in the direction of travel.
 /// </summary>
 public sealed class ZoomImage : Control
 {
@@ -25,6 +26,13 @@ public sealed class ZoomImage : Control
     private static readonly IPen HighlightPen = new Pen(new SolidColorBrush(Color.FromArgb(0xCC, 0x2E, 0x9B, 0xFF)), 1);
 
     private const double MinZoom = 0.02, MaxZoom = 32;
+    private static readonly TimeSpan TransitionLength = TimeSpan.FromMilliseconds(220);
+
+    // The photo being left, drawn as it was on screen while the new one comes in
+    private Bitmap? _outgoing;
+    private Matrix _outgoingTransform;
+    private int _outgoingDirection;
+    private long _transitionStart;
 
     private double _zoom = 1;          // DIPs (points) per image pixel
     private Vector _offset;            // image centre relative to view centre, in DIPs
@@ -61,6 +69,9 @@ public sealed class ZoomImage : Control
     /// <summary>Set when switching photos, so the next photo starts fitted and upright (otherwise a source change
     /// is taken as the same photo at another resolution, or the next frame of an animation).</summary>
     public bool ResetOnNextSource { get; set; }
+
+    /// <summary>Which way the next photo change goes: 1 forward, -1 back, 0 in place (a delete): sets the slide.</summary>
+    public int TransitionDirection { get; set; }
     public double Zoom => _zoom;
 
     /// <summary>Image size after rotation, in image pixels.</summary>
@@ -89,6 +100,7 @@ public sealed class ZoomImage : Control
             var after = change.NewValue as Bitmap;
             if (ResetOnNextSource || before is null || after is null)
             {
+                if (ResetOnNextSource && before is not null && after is not null) BeginTransition(before);
                 ResetOnNextSource = false;
                 Reset();
             }
@@ -101,6 +113,24 @@ public sealed class ZoomImage : Control
             else InvalidateVisual(); // next animation frame
         }
         if (change.Property == BoundsProperty && _fit) { _zoom = FitZoom; InvalidateVisual(); }
+    }
+
+    /// <summary>Starts fading <paramref name="leaving"/> out from where it is on screen now.</summary>
+    private void BeginTransition(Bitmap leaving)
+    {
+        _outgoing = leaving;
+        _outgoingTransform = TransformFor(leaving);
+        _outgoingDirection = TransitionDirection;
+        _transitionStart = Environment.TickCount64;
+        TopLevel.GetTopLevel(this)?.RequestAnimationFrame(OnTransitionFrame);
+    }
+
+    private void OnTransitionFrame(TimeSpan _)
+    {
+        if (_outgoing is null) return;
+        if (Environment.TickCount64 - _transitionStart >= TransitionLength.TotalMilliseconds) _outgoing = null;
+        else TopLevel.GetTopLevel(this)?.RequestAnimationFrame(OnTransitionFrame);
+        InvalidateVisual();
     }
 
     /// <summary>Back to fit mode and upright, as when a new photo is shown.</summary>
@@ -160,19 +190,44 @@ public sealed class ZoomImage : Control
         ViewChanged?.Invoke();
     }
 
+    /// <summary>Image pixels to view coordinates for the current zoom, pan and rotation.</summary>
+    private Matrix TransformFor(Bitmap bitmap)
+    {
+        var centre = Bounds.Center + _offset;
+        return Matrix.CreateTranslation(-bitmap.PixelSize.Width / 2.0, -bitmap.PixelSize.Height / 2.0)
+               * Matrix.CreateScale(_zoom, _zoom)
+               * Matrix.CreateRotation(_quarterTurns * Math.PI / 2)
+               * Matrix.CreateTranslation(centre.X, centre.Y);
+    }
+
     public override void Render(DrawingContext context)
     {
         if (Source is not { } bitmap) return;
         var dipPerPixel = _zoom;
         var w = bitmap.PixelSize.Width;
         var h = bitmap.PixelSize.Height;
-        var centre = Bounds.Center + _offset;
-        var transform = Matrix.CreateTranslation(-w / 2.0, -h / 2.0)
-                        * Matrix.CreateScale(dipPerPixel, dipPerPixel)
-                        * Matrix.CreateRotation(_quarterTurns * Math.PI / 2)
-                        * Matrix.CreateTranslation(centre.X, centre.Y);
+        var transform = TransformFor(bitmap);
         // Smooth when shrinking; crisp pixels from 1:1 up, as image viewers do for inspection
         var mode = _zoom < 1 ? BitmapInterpolationMode.HighQuality : BitmapInterpolationMode.None;
+
+        if (_outgoing is { } outgoing)
+        {
+            // Ease-out over the transition: the old photo fades and drifts away, the new one settles in
+            var linear = Math.Clamp((Environment.TickCount64 - _transitionStart) / TransitionLength.TotalMilliseconds, 0, 1);
+            var t = 1 - Math.Pow(1 - linear, 3);
+            var slide = Math.Min(Bounds.Width * 0.05, 48) * _outgoingDirection;
+            // The outgoing bitmap stays valid: whoever releases a photo's bitmaps does so a second later
+            using (context.PushTransform(_outgoingTransform * Matrix.CreateTranslation(-slide * t, 0)))
+            using (context.PushOpacity(1 - t))
+            using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = BitmapInterpolationMode.HighQuality }))
+                context.DrawImage(outgoing, new Rect(0, 0, outgoing.PixelSize.Width, outgoing.PixelSize.Height));
+            using (context.PushTransform(transform * Matrix.CreateTranslation(slide * (1 - t), 0)))
+            using (context.PushOpacity(t))
+            using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = mode }))
+                context.DrawImage(bitmap, new Rect(0, 0, w, h));
+            return;
+        }
+
         using (context.PushTransform(transform))
         using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = mode }))
             context.DrawImage(bitmap, new Rect(0, 0, w, h));

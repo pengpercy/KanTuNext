@@ -7,7 +7,7 @@ using SkiaSharp;
 namespace KanTuNext.Desktop.Services;
 
 /// <summary>A decoded photo: one bitmap, or the frames of an animation (GIF, animated WebP) with their durations.</summary>
-public sealed record LoadedImage(Bitmap First, IReadOnlyList<Bitmap>? Frames = null, IReadOnlyList<TimeSpan>? Durations = null)
+public sealed record LoadedImage(Bitmap First, IReadOnlyList<Bitmap>? Frames = null, IReadOnlyList<TimeSpan>? Durations = null) : IDisposable
 {
     public bool IsAnimated => Frames is { Count: > 1 };
 
@@ -51,6 +51,13 @@ public sealed class ImageLoader
         lock (_gate) _pinned = path;
     }
 
+    /// <summary>
+    /// Disposes bitmaps that just left the screen a second from now: recorded draw calls, and the viewer's
+    /// cross-fade from the previous photo, still draw them for a moment.
+    /// </summary>
+    internal static void DisposeLater(IEnumerable<IDisposable> items) => Dispatcher.UIThread.Post(() =>
+        DispatcherTimer.RunOnce(() => { foreach (var item in items) item.Dispose(); }, TimeSpan.FromSeconds(1)));
+
     public Task<LoadedImage?> LoadAsync(string path, int maxEdge)
     {
         lock (_gate)
@@ -93,7 +100,7 @@ public sealed class ImageLoader
             }
         }
         // Released on the UI thread: draw calls already recorded keep their own reference to the pixels
-        if (evicted.Count > 0) Dispatcher.UIThread.Post(() => evicted.ForEach(i => i.Dispose()), DispatcherPriority.Background);
+        if (evicted.Count > 0) DisposeLater(evicted);
     }
 
     private static LoadedImage? Decode(string path, int maxEdge)

@@ -187,8 +187,8 @@ public sealed partial class ViewerViewModel : ObservableObject
         var frames = _liveFrames;
         _liveFrames = null;
         IsPlayingLive = false;
-        // After the still is back on screen: recorded draw calls keep their own reference until then
-        if (frames is not null) Dispatcher.UIThread.Post(() => frames.ForEach(f => f.Dispose()), DispatcherPriority.Background);
+        // After the still is back on screen (or the cross-fade to the next photo is over)
+        if (frames is not null) ImageLoader.DisposeLater(frames);
     }
 
     public PhotoTag Tag => Current is { } c ? AppServices.Tags.Get(c.Path) : PhotoTag.None;
@@ -220,8 +220,10 @@ public sealed partial class ViewerViewModel : ObservableObject
 
     public async Task ShowAsync(int index)
     {
-        Index = index;
-        // Index may not change (delete keeps the position): refresh what depends on the item explicitly
+        // Index may not change (delete keeps the position): refresh what depends on the item explicitly, Index
+        // included, so the view still starts the next photo fitted (and cross-fades to it)
+        if (Index == index) OnPropertyChanged(nameof(Index));
+        else Index = index;
         OnPropertyChanged(nameof(Current));
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(Tag));

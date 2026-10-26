@@ -13,6 +13,7 @@ public partial class ViewerWindow : Window
 {
     private readonly DispatcherTimer _hideToolbar;
     private bool _actualSizeWhenFull;
+    private int _shownIndex;
 
     public ViewerWindow()
     {
@@ -34,6 +35,7 @@ public partial class ViewerWindow : Window
         DataContextChanged += (_, _) =>
         {
             if (Model is not { } vm) return;
+            _shownIndex = vm.Index;
             vm.FullResolutionShown += () =>
             {
                 if (!_actualSizeWhenFull) return;
@@ -42,7 +44,12 @@ public partial class ViewerWindow : Window
             };
             vm.PropertyChanged += (_, e) =>
             {
-                if (e.PropertyName == nameof(ViewerViewModel.Index)) Viewer.ResetOnNextSource = true;
+                if (e.PropertyName == nameof(ViewerViewModel.Index))
+                {
+                    Viewer.ResetOnNextSource = true;
+                    Viewer.TransitionDirection = Math.Sign(vm.Index - _shownIndex);
+                    _shownIndex = vm.Index;
+                }
                 if (e.PropertyName is nameof(ViewerViewModel.Tag) or nameof(ViewerViewModel.Index)) UpdateTagButtons();
             };
             UpdateTagButtons();
