@@ -2,11 +2,29 @@
   <img src="build/resources/icon/kantunext-1024.png" width="112" alt="看图 KanTuNext 图标">
 </p>
 
-# 看图 KanTuNext
+<h1 align="center">看图 KanTuNext</h1>
 
-一款轻快、私密、跨平台的离线看图与照片整理工具。
+<p align="center">
+  <strong>一款轻快、私密、跨平台的离线看图与照片整理工具。</strong><br>
+  打开一个文件夹，照片会按拍摄月份自动排好。快速浏览大图、筛选和标记照片、清理重复项，也可以直接选中并复制图片里的文字。
+</p>
 
-打开一个文件夹，照片会按拍摄月份自动排好。你可以快速浏览大图、筛选和标记照片、清理重复项，也可以直接选中并复制图片里的文字。支持 Windows、macOS 和 Linux。
+<p align="center">
+  <a href="https://github.com/pengpercy/KanTuNext"><img src="https://img.shields.io/badge/written_in-C%23-512BD4?style=flat-square&amp;logo=dotnet&amp;logoColor=white" alt="使用 C# 编写"></a>
+  <a href="https://dotnet.microsoft.com/download/dotnet/10.0"><img src="https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&amp;logo=dotnet&amp;logoColor=white" alt=".NET 10"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/pengpercy/KanTuNext?style=flat-square&amp;color=2563eb" alt="MIT License"></a>
+  <a href="https://github.com/pengpercy/KanTuNext/releases/latest"><img src="https://img.shields.io/github/v/release/pengpercy/KanTuNext?display_name=tag&amp;sort=semver&amp;style=flat-square&amp;label=release&amp;color=ea580c" alt="最新版本"></a>
+  <a href="https://github.com/pengpercy/KanTuNext/actions/workflows/ci.yml"><img src="https://github.com/pengpercy/KanTuNext/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 状态"></a>
+  <a href="https://github.com/pengpercy/KanTuNext/releases"><img src="https://img.shields.io/github/downloads/pengpercy/KanTuNext/total?style=flat-square&amp;label=downloads&amp;color=0891b2" alt="总下载量"></a>
+  <br>
+  <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-475569?style=flat-square" alt="支持 Windows、macOS 和 Linux">
+</p>
+
+<p align="center">
+  <a href="https://github.com/pengpercy/KanTuNext/releases/latest"><img src="https://img.shields.io/badge/DOWNLOAD-LATEST_RELEASE-2563EB?style=for-the-badge&amp;logo=github&amp;logoColor=white" alt="下载最新版本"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/READ-CHANGELOG-0F766E?style=for-the-badge&amp;logo=gitbook&amp;logoColor=white" alt="查看更新日志"></a>
+  <a href="#从源码运行"><img src="https://img.shields.io/badge/BUILD-FROM_SOURCE-7C3AED?style=for-the-badge&amp;logo=dotnet&amp;logoColor=white" alt="从源码构建"></a>
+</p>
 
 照片的扫描、解码、信息读取与文字识别都在本机完成，不会被上传。应用仅在检查更新时访问 GitHub；这项功能可以在设置中关闭。
 
