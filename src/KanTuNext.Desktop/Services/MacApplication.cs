@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 namespace KanTuNext.Desktop.Services;
 
 /// <summary>
-/// The standard NSApplication actions behind the app menu's Hide / Hide Others / Show All items.
+/// The standard NSApplication actions behind the app menu's Hide / Hide Others / Show All items, and activation.
 /// Avalonia's built-in versions of those items are English-only, so the app menu provides its
 /// own localized items and routes them here.
 /// </summary>
@@ -28,6 +28,29 @@ internal static class MacApplication
     public static void HideOthers() => SendToApp("hideOtherApplications:");
 
     public static void ShowAll() => SendToApp("unhideAllApplications:");
+
+    /// <summary>Brings the app forward even when another app is active (a second launch handing over).</summary>
+    public static void Activate()
+    {
+        SendToApp("unhide:");
+        SendBool("activateIgnoringOtherApps:", true);
+    }
+
+    private static void SendBool(string selector, bool value)
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        try
+        {
+            var app = Send(objc_getClass("NSApplication"), sel_registerName("sharedApplication"));
+            if (app != IntPtr.Zero) SendBool(app, sel_registerName(selector), value);
+        }
+        catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+        {
+        }
+    }
+
+    [DllImport(ObjcLib, EntryPoint = "objc_msgSend")]
+    private static extern void SendBool(IntPtr receiver, IntPtr selector, [MarshalAs(UnmanagedType.U1)] bool value);
 
     private static void SendToApp(string selector)
     {

@@ -6,7 +6,14 @@ namespace KanTuNext.Desktop;
 internal static class Program
 {
     [STAThread]
-    public static void Main(string[] args) => BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    public static void Main(string[] args)
+    {
+        // Before Avalonia starts: a second copy hands over to the running one and exits
+        using var instance = SingleInstance.TryAcquire();
+        if (instance is null && SingleInstance.NotifyRunning()) return;
+        App.Instance = instance;
+        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    }
 
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()

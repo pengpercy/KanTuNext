@@ -15,6 +15,9 @@ public class App : Application
         WindowChrome.Install();
     }
 
+    /// <summary>The single-instance guard taken in Program.Main (null if another copy didn't answer).</summary>
+    internal static SingleInstance? Instance { get; set; }
+
     private MainWindow? Main => (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow as MainWindow;
 
     // macOS app menu
@@ -35,6 +38,7 @@ public class App : Application
             var window = new MainWindow { DataContext = vm };
             window.RestorePlacement(vm.Placement);
             desktop.MainWindow = window;
+            Instance?.Listen(window.BringToFront);
             // The update check waits until the window is up and the first folder is loading
             window.Opened += async (_, _) =>
             {

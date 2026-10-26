@@ -143,6 +143,15 @@ public partial class MainWindow : Window
 
     private void OnSettings(object? sender, RoutedEventArgs e) => ShowSettings();
 
+    /// <summary>Another launch of the app: show this window instead.</summary>
+    public void BringToFront()
+    {
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Show();
+        Activate();
+        if (OperatingSystem.IsMacOS()) MacApplication.Activate();
+    }
+
     public void CheckForUpdates()
     {
         if (DataContext is MainViewModel vm) UpdateWindow.CheckInteractively(vm, this);
