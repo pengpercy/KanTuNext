@@ -34,6 +34,46 @@ public sealed class FolderScannerTests : IDisposable
     }
 
     [Fact]
+    public void SkipsCodeAndBuildFoldersButNotTheOpenedOne()
+    {
+        Write("trip/a.jpg", [0xFF, 0xD8]);
+        Write("app/node_modules/pkg/logo.png", [1]);
+        Write("app/bin/Debug/icon.png", [1]);
+        Write("app/res/drawable-hdpi/ic.png", [1]);
+        Write("App.xcassets/AppIcon.appiconset/icon.png", [1]);
+        Write("favicon.ico", [1]);
+
+        Assert.Equal(["a.jpg"], FolderScanner.Scan(_root, TestContext.Current.CancellationToken).Select(f => f.Name));
+        Assert.Equal(["icon.png"], FolderScanner.Scan(Path.Combine(_root, "app", "bin"), TestContext.Current.CancellationToken).Select(f => f.Name));
+    }
+
+    [Fact]
+    public void ReadsPixelSizeSoSmallImagesCanBeHidden()
+    {
+        Write("icon.png", Png(64, 64));
+        Write("banner.png", Png(600, 100));
+        Write("photo.heic", [0, 0, 0, 0]);
+
+        var files = FolderScanner.Scan(_root, TestContext.Current.CancellationToken).ToDictionary(f => f.Name);
+
+        Assert.Equal((64, 64), (files["icon.png"].Width, files["icon.png"].Height));
+        Assert.True(LibraryFilters.IsSmallImage(files["icon.png"]));
+        Assert.False(LibraryFilters.IsSmallImage(files["banner.png"]));
+        Assert.False(LibraryFilters.IsSmallImage(files["photo.heic"])); // size unknown: kept
+    }
+
+    internal static byte[] Png(int width, int height)
+    {
+        var data = new byte[33];
+        KanTuNext.Core.Metadata.MetadataChunks.PngSignature.CopyTo(data);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(data.AsSpan(8), 13);
+        "IHDR"u8.CopyTo(data.AsSpan(12));
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(data.AsSpan(16), width);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(data.AsSpan(20), height);
+        return data;
+    }
+
+    [Fact]
     public void MissingFolderIsEmpty() => Assert.Empty(FolderScanner.Scan(Path.Combine(_root, "nope"), TestContext.Current.CancellationToken));
 
     [Fact]

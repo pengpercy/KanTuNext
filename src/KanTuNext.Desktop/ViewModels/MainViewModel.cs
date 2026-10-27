@@ -117,22 +117,14 @@ public sealed partial class MainViewModel : ObservableObject
             var info = new FileInfo(path);
             if (!info.Exists || MediaTypes.KindOf(path) is not { } kind) continue;
             var file = new MediaFile(path, kind, info.Length, info.LastWriteTime);
-            if (kind == MediaKind.Image)
-            {
-                if (!_metadata.Value.TryGet(path, file.Modified, file.Length, out var exif))
-                {
-                    exif = ExifReader.Read(path);
-                    _metadata.Value.Set(path, file.Modified, file.Length, exif);
-                }
-                file = file with { Taken = exif.Taken, Orientation = exif.Orientation };
-            }
+            if (kind == MediaKind.Image) file = file.With(_metadata.Value.GetOrRead(path, file.Modified, file.Length));
             result.Add(file);
         }
         return result;
     }
 
     private readonly AppSettings _settings = AppSettings.Load();
-    // EXIF results survive restarts: a rescan of unchanged files reads no file contents
+    // Image headers (EXIF, pixel size) survive restarts: a rescan of unchanged files reads no file contents
     private readonly Lazy<MetadataCache> _metadata = new(() => MetadataCache.Load(MetadataCache.DefaultPath));
 
     public IReadOnlyList<SidebarSection> Sections { get; }
@@ -199,7 +191,14 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>The settings window's model, sharing this window's settings object.</summary>
-    public SettingsViewModel CreateSettings() => new(_settings, SaveSettings);
+    public SettingsViewModel CreateSettings() => new(_settings, SaveSettings, Rescan);
+
+    /// <summary>Recounts every folder and reloads the open view, after a setting changed what a scan shows.</summary>
+    private void Rescan()
+    {
+        _ = CountFoldersAsync();
+        _ = LoadAsync(Selected, refresh: true);
+    }
 
     public KanTuNext.Core.Settings.AppTheme Theme => _settings.Theme;
 
@@ -454,7 +453,7 @@ public sealed partial class MainViewModel : ObservableObject
         {
             var files = await Task.Run(() =>
             {
-                var result = FolderScanner.Scan(folder, cts.Token, _metadata.Value);
+                var result = Shown(FolderScanner.Scan(folder, cts.Token, _metadata.Value));
                 SaveMetadata();
                 return result;
             }, cts.Token);
@@ -539,13 +538,17 @@ public sealed partial class MainViewModel : ObservableObject
     {
         foreach (var item in Sections.SelectMany(s => s.Items).Where(i => i is { Category: LibraryCategory.Folder, Path: not null }).ToArray())
         {
-            var files = await Task.Run(() => FolderScanner.Scan(item.Path!, cache: _metadata.Value));
+            var files = await Task.Run(() => Shown(FolderScanner.Scan(item.Path!, cache: _metadata.Value)));
             Remember(item.Path!, files);
             item.Count = files.Count > 0 ? files.Count.ToString() : "";
         }
         UpdateFilterCounts();
         await Task.Run(SaveMetadata);
     }
+
+    /// <summary>A scan's files minus what the settings hide (隐藏小图片).</summary>
+    private IReadOnlyList<MediaFile> Shown(IReadOnlyList<MediaFile> files) =>
+        _settings.HideSmallImages ? files.Where(f => !LibraryFilters.IsSmallImage(f)).ToArray() : files;
 
     private void SaveMetadata()
     {
@@ -566,12 +569,15 @@ public sealed partial class MainViewModel : ObservableObject
 
     // ---- 简介: the selected photo's details
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(Info))]
+    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(Info), nameof(InfoMapUrl))]
     public partial MediaFile? SelectedFile { get; set; }
 
     public bool HasSelection => SelectedFile is not null;
 
     public IReadOnlyList<InfoRow> Info => SelectedFile is { } f ? PhotoInfo.Rows(f) : [];
+
+    /// <summary>The selected photo's 拍摄地点 in the maps app (or on the web), when it has one.</summary>
+    public string? InfoMapUrl => SelectedFile is { } f && PhotoInfo.Coordinates(f) is var (lat, lon) ? SystemMaps.Url(lat, lon) : null;
 
     public bool IsSmall { get => Size == ThumbnailSize.Small; set { if (value) Size = ThumbnailSize.Small; } }
     public bool IsMedium { get => Size == ThumbnailSize.Medium; set { if (value) Size = ThumbnailSize.Medium; } }

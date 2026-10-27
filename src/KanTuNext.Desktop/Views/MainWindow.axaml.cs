@@ -310,6 +310,11 @@ public partial class MainWindow : Window
 
     private void OnSettings(object? sender, RoutedEventArgs e) => ShowSettings();
 
+    private void OnOpenInfoMap(object? sender, RoutedEventArgs e)
+    {
+        if (Model?.InfoMapUrl is { } url) Opener.Open(url);
+    }
+
     /// <summary>Another launch of the app: show this window instead.</summary>
     public void BringToFront()
     {

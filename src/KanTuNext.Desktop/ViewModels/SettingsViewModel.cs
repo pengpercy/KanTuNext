@@ -11,11 +11,13 @@ public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly AppSettings _settings;
     private readonly Action _save;
+    private readonly Action? _libraryChanged;
 
-    public SettingsViewModel(AppSettings settings, Action save)
+    public SettingsViewModel(AppSettings settings, Action save, Action? libraryChanged = null)
     {
         _settings = settings;
         _save = save;
+        _libraryChanged = libraryChanged;
         _ = MeasureCacheAsync();
     }
 
@@ -48,6 +50,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             _settings.LiveText = value;
             _save();
+        }
+    }
+
+    public bool HideSmallImages
+    {
+        get => _settings.HideSmallImages;
+        set
+        {
+            _settings.HideSmallImages = value;
+            _save();
+            _libraryChanged?.Invoke();
         }
     }
 

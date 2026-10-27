@@ -187,19 +187,28 @@
             <PathIcon Data="{StaticResource Icon.information-outline}" Width="18" Height="18" />
             <Button.Flyout>
               <Flyout Placement="BottomEdgeAlignedRight" FlyoutPresenterClasses="photoInfo">
-                <ItemsControl ItemsSource="{Binding Info}" Width="300" Margin="4,5">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="services:InfoRow">
-                      <Grid ColumnDefinitions="68,*" ColumnSpacing="10" Margin="6,5">
-                        <TextBlock Text="{Binding Label}" FontFamily="{StaticResource InfoRowFont}" FontSize="12" LineHeight="18" Padding="0"
-                                   VerticalAlignment="Top" Foreground="#8CFFFFFF" />
-                        <SelectableTextBlock Grid.Column="1" Text="{Binding Value}" FontFamily="{StaticResource InfoRowFont}" FontSize="12" LineHeight="18"
-                                             Padding="0" VerticalAlignment="Top" TextWrapping="Wrap"
-                                             Foreground="#F2FFFFFF" SelectionBrush="#662E9BFF" />
-                      </Grid>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <StackPanel Width="300" Margin="4,5" Spacing="6">
+                  <ItemsControl ItemsSource="{Binding Info}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="services:InfoRow">
+                        <Grid ColumnDefinitions="68,*" ColumnSpacing="10" Margin="6,5">
+                          <TextBlock Text="{Binding Label}" FontFamily="{StaticResource InfoRowFont}" FontSize="12" LineHeight="18" Padding="0"
+                                     VerticalAlignment="Top" Foreground="#8CFFFFFF" />
+                          <SelectableTextBlock Grid.Column="1" Text="{Binding Value}" FontFamily="{StaticResource InfoRowFont}" FontSize="12" LineHeight="18"
+                                               Padding="0" VerticalAlignment="Top" TextWrapping="Wrap"
+                                               Foreground="#F2FFFFFF" SelectionBrush="#662E9BFF" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Button Classes="mapLink" Click="OnOpenInfoMap" Margin="6,2,6,4"
+                          IsVisible="{Binding InfoMapUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <PathIcon Data="{StaticResource Icon.map-marker-outline}" Width="14" Height="14" />
+                      <TextBlock Text="在地图中查看拍摄位置" FontSize="12" />
+                    </StackPanel>
+                  </Button>
+                </StackPanel>
               </Flyout>
             </Button.Flyout>
           </Button>

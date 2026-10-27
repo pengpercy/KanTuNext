@@ -74,6 +74,20 @@
   </Style>
 
   <!-- Main-window photo info: match the translucent card over a photo in the viewer. -->
+  <!-- 在地图中查看拍摄位置, under the photo details (viewer panel, 简介) -->
+  <Style Selector="Button.mapLink">
+    <Setter Property="Padding" Value="10,6" />
+    <Setter Property="Background" Value="#1A2E9BFF" />
+    <Setter Property="Foreground" Value="#FF5CB2FF" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{StaticResource CardCornerRadius}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.mapLink:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#332E9BFF" />
+    <Setter Property="Foreground" Value="#FF8CC8FF" />
+  </Style>
   <Style Selector="FlyoutPresenter.photoInfo">
     <Setter Property="Background" Value="#C7141416" />
     <Setter Property="BorderBrush" Value="#1FFFFFFF" />
@@ -98,6 +112,10 @@
   <Style Selector="ContextMenu.glass, MenuFlyoutPresenter.glass">
     <Setter Property="Background" Value="{DynamicResource MenuGlassBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource MenuGlassBorderBrush}" />
+  </Style>
+  <!-- Windows' acrylic is thinner than macOS's menu material: a thicker tint keeps the menu as calm -->
+  <Style Selector="ContextMenu.glass.windows, MenuFlyoutPresenter.glass.windows">
+    <Setter Property="Background" Value="{DynamicResource MenuGlassBrushWindows}" />
   </Style>
   <Style Selector="ContextMenu Separator">
     <Setter Property="Margin" Value="8,3" />

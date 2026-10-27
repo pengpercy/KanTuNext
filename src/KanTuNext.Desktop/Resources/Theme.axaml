@@ -36,6 +36,7 @@
       <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFFFFF" />
       <!-- A light tint over the blurred menu material (Services/Glass.cs) -->
       <SolidColorBrush x:Key="MenuGlassBrush" Color="#47FFFFFF" />
+      <SolidColorBrush x:Key="MenuGlassBrushWindows" Color="#A6F5F5F5" />
       <SolidColorBrush x:Key="MenuGlassBorderBrush" Color="#1F000000" />
       <!-- Settings window: grouped cards on a slightly darker page -->
       <SolidColorBrush x:Key="SettingsPageBrush" Color="#F2F2F5" />
@@ -72,6 +73,7 @@
       <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#2C2C2C" />
       <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#1E1E1E" />
       <SolidColorBrush x:Key="MenuGlassBrush" Color="#2E1C1C1E" />
+      <SolidColorBrush x:Key="MenuGlassBrushWindows" Color="#A6202022" />
       <SolidColorBrush x:Key="MenuGlassBorderBrush" Color="#2EFFFFFF" />
       <SolidColorBrush x:Key="SettingsPageBrush" Color="#1A1A1C" />
       <SolidColorBrush x:Key="SettingsCardBrush" Color="#262628" />

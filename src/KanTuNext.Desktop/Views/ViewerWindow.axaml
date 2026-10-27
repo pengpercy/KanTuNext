@@ -60,19 +60,6 @@
       <Setter Property="Background" Value="#1FFFFFFF" />
       <Setter Property="Foreground" Value="#FFFFFFFF" />
     </Style>
-    <Style Selector="Button.mapLink">
-      <Setter Property="Padding" Value="10,6" />
-      <Setter Property="Background" Value="#1A2E9BFF" />
-      <Setter Property="Foreground" Value="#FF5CB2FF" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="CornerRadius" Value="{StaticResource CardCornerRadius}" />
-      <Setter Property="HorizontalAlignment" Value="Stretch" />
-      <Setter Property="HorizontalContentAlignment" Value="Center" />
-    </Style>
-    <Style Selector="Button.mapLink:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#332E9BFF" />
-      <Setter Property="Foreground" Value="#FF8CC8FF" />
-    </Style>
     <Style Selector="Border#InfoPanel">
       <Setter Property="Transitions">
         <Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.18" /></Transitions>

@@ -100,9 +100,7 @@ public sealed record PhotoDetails(
             shown is var (a, b) ? $"{a} × {b}" : null,
             TimelineText.FileSize(file.Length),
         }.Where(s => s is not null));
-        var map = exif is { Latitude: { } lat, Longitude: { } lon }
-            ? string.Create(CultureInfo.InvariantCulture, $"https://www.openstreetmap.org/?mlat={lat:0.######}&mlon={lon:0.######}#map=16/{lat:0.######}/{lon:0.######}")
-            : null;
+        var map = exif is { Latitude: { } lat, Longitude: { } lon } ? SystemMaps.Url(lat, lon) : null;
         return new PhotoDetails(file.Name, summary, exif.Camera, exif.Lens, exposure, sections, map);
     }
 

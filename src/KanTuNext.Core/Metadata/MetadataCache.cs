@@ -3,36 +3,45 @@ using System.Collections.Concurrent;
 namespace KanTuNext.Core.Metadata;
 
 /// <summary>
-/// EXIF results keyed by path, valid while the file's mtime and length are unchanged, so a rescan reads no
+/// Image headers (EXIF and pixel size) keyed by path, valid while the file's mtime and length are unchanged, so a rescan reads no
 /// file contents. Stored as a small binary file; a missing, damaged or older-format file just starts empty.
 /// </summary>
 public sealed class MetadataCache
 {
     private const int Magic = 0x434D544B; // "KTMC"
-    private const int Version = 2; // 2: HEIC/AVIF/JPEG XL capture dates are read now
+    private const int Version = 3; // 2: HEIC/AVIF/JPEG XL capture dates are read now; 3: pixel size
 
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
     private volatile bool _dirty;
 
-    private readonly record struct Entry(long Modified, long Length, long Taken, byte Orientation);
+    private readonly record struct Entry(long Modified, long Length, long Taken, byte Orientation, int Width, int Height);
 
     public static string DefaultPath => Path.Combine(AppPaths.DataDirectory, "metadata.bin");
 
-    public bool TryGet(string path, DateTime modified, long length, out ExifInfo info)
+    public bool TryGet(string path, DateTime modified, long length, out ImageHeader info)
     {
         if (_entries.TryGetValue(path, out var e) && e.Modified == modified.Ticks && e.Length == length)
         {
-            info = new ExifInfo(e.Taken == 0 ? null : new DateTime(e.Taken), e.Orientation);
+            info = new ImageHeader(e.Taken == 0 ? null : new DateTime(e.Taken), e.Orientation, e.Width, e.Height);
             return true;
         }
         info = default;
         return false;
     }
 
-    public void Set(string path, DateTime modified, long length, ExifInfo info)
+    public void Set(string path, DateTime modified, long length, ImageHeader info)
     {
-        _entries[path] = new Entry(modified.Ticks, length, info.Taken?.Ticks ?? 0, (byte)info.Orientation);
+        _entries[path] = new Entry(modified.Ticks, length, info.Taken?.Ticks ?? 0, (byte)info.Orientation, info.Width, info.Height);
         _dirty = true;
+    }
+
+    /// <summary>The cached header, or one read from the file (and cached) when missing or stale.</summary>
+    public ImageHeader GetOrRead(string path, DateTime modified, long length)
+    {
+        if (TryGet(path, modified, length, out var info)) return info;
+        info = ImageHeader.Read(path);
+        Set(path, modified, length, info);
+        return info;
     }
 
     public static MetadataCache Load(string file)
@@ -47,7 +56,8 @@ public sealed class MetadataCache
             for (var i = 0; i < count; i++)
             {
                 var path = reader.ReadString();
-                cache._entries[path] = new Entry(reader.ReadInt64(), reader.ReadInt64(), reader.ReadInt64(), reader.ReadByte());
+                cache._entries[path] = new Entry(reader.ReadInt64(), reader.ReadInt64(), reader.ReadInt64(), reader.ReadByte(),
+                    reader.ReadInt32(), reader.ReadInt32());
             }
         }
         catch (Exception e) when (e is IOException or EndOfStreamException or UnauthorizedAccessException or FormatException)
@@ -76,6 +86,8 @@ public sealed class MetadataCache
                 writer.Write(e.Length);
                 writer.Write(e.Taken);
                 writer.Write(e.Orientation);
+                writer.Write(e.Width);
+                writer.Write(e.Height);
             }
         }
         File.Move(temp, file, true);

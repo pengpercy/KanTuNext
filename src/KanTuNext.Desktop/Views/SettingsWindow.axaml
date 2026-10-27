@@ -28,6 +28,20 @@
       </Grid>
     </Border>
 
+    <TextBlock Classes="settingsHeader" Text="图库" />
+    <Border Classes="settingsCard">
+      <Grid Classes="settingsRow" ColumnDefinitions="Auto,*,Auto">
+        <Border Classes="settingsIcon" Background="#FF375F">
+          <PathIcon Data="{StaticResource Icon.image-size-select-large}" />
+        </Border>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+          <TextBlock Classes="settingsTitle" Text="隐藏小图片" />
+          <TextBlock Classes="settingsHint" Text="不显示长和宽都小于 128 像素的图标、素材" />
+        </StackPanel>
+        <ToggleSwitch Grid.Column="2" Classes="settingsSwitch" IsChecked="{Binding HideSmallImages}" />
+      </Grid>
+    </Border>
+
     <StackPanel IsVisible="{Binding OcrAvailable}">
       <TextBlock Classes="settingsHeader" Text="看图" />
       <Border Classes="settingsCard">

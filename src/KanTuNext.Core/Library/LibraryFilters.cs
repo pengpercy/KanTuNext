@@ -12,6 +12,13 @@ public static partial class LibraryFilters
 
     public static bool IsLargeImage(MediaFile f) => f.Kind == MediaKind.Image && f.Length >= LargeImageBytes;
 
+    /// <summary>Images whose width and height are both under this many pixels are icons and UI graphics (隐藏小图片).</summary>
+    public const int SmallImageEdge = 128;
+
+    /// <summary>Known to be small; an image of unknown size (0 × 0) is kept.</summary>
+    public static bool IsSmallImage(MediaFile f) =>
+        f.Kind == MediaKind.Image && f.Width > 0 && f.Height > 0 && f.Width < SmallImageEdge && f.Height < SmallImageEdge;
+
     /// <summary>Default screenshot names of macOS (中/英), Windows, GNOME/KDE and phones.</summary>
     public static bool IsScreenshot(MediaFile f) => f.Kind == MediaKind.Image && ScreenshotName().IsMatch(f.Name);
 

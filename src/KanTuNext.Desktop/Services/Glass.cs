@@ -9,8 +9,9 @@ namespace KanTuNext.Desktop.Services;
 /// <summary>
 /// Frosted glass, as Finder's. Right-click menus (and <see cref="GlassMenuFlyout"/>s): the menu's popup window blurs what is behind it and the menu
 /// draws a thin tint over that; macOS rounds the popup window to the menu's corners and uses the system's menu
-/// material, Windows 11 rounds it through DWM, elsewhere (Windows 10, Linux) the menu stays opaque. The main
-/// window's sidebar: macOS swaps Avalonia's HUD material for the system's sidebar one.
+/// material, Windows 11 rounds it through DWM (and tints it thicker: its acrylic lets more through), elsewhere
+/// (Windows 10, Linux) the menu stays opaque. The main window's sidebar: macOS swaps Avalonia's HUD material for the
+/// system's sidebar one.
 /// </summary>
 internal static class Glass
 {
@@ -43,7 +44,11 @@ internal static class Glass
         if (root.ActualTransparencyLevel != WindowTransparencyLevel.AcrylicBlur
             && root.ActualTransparencyLevel != WindowTransparencyLevel.Blur) return;
         menu.Classes.Add("glass");
-        if (OperatingSystem.IsWindows()) menu.CornerRadius = new Avalonia.CornerRadius(4);
+        if (OperatingSystem.IsWindows())
+        {
+            menu.Classes.Add("windows");
+            menu.CornerRadius = new Avalonia.CornerRadius(8);
+        }
         Round(root, menu);
     }
 
@@ -173,14 +178,14 @@ internal static class Glass
         }
     }
 
-    // ---- Windows 11: DWM rounds the popup (and its acrylic) like the system's own menus
+    // ---- Windows 11: DWM rounds the popup (and its acrylic) smoothly, like the system's own menus
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
     private static void WindowsRound(IntPtr hwnd)
     {
-        var round = 3; // DWMWCP_ROUNDSMALL: 4px, matched by the glass menu's corner radius
+        var round = 2; // DWMWCP_ROUND: 8px, matched by the glass menu's corner radius
         DwmSetWindowAttribute(hwnd, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, ref round, sizeof(int));
     }
 }

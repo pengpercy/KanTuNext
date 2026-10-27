@@ -15,6 +15,9 @@ public sealed class AppSettings
     /// <summary>小/中/大/最大, as last chosen.</summary>
     public Library.ThumbnailSize ThumbnailSize { get; set; } = Library.ThumbnailSize.Small;
 
+    /// <summary>Leave images under 128 × 128 pixels (icons, UI graphics) out of folders and 筛选 views.</summary>
+    public bool HideSmallImages { get; set; } = true;
+
     /// <summary>Follow the system, or force light/dark.</summary>
     public AppTheme Theme { get; set; } = AppTheme.System;
 

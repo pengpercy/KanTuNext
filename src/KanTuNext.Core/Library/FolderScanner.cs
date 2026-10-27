@@ -7,26 +7,49 @@ public static class FolderScanner
 {
     private static readonly EnumerationOptions Options = new()
     {
-        RecurseSubdirectories = true,
         IgnoreInaccessible = true,
         AttributesToSkip = FileAttributes.Hidden | FileAttributes.System,
         ReturnSpecialDirectories = false,
     };
 
+    /// <summary>Code, build output and dependencies: their images are app icons and UI graphics, not photos.</summary>
+    private static readonly HashSet<string> SkippedFolders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "node_modules", "bower_components", "bin", "obj", "build", "dist", "out", "target", "Pods", "Carthage",
+        "DerivedData", "vendor", "venv", "site-packages", "__pycache__",
+    };
+
+    /// <summary>Photos libraries, apps and other bundles are folders with a dot-extension; their contents are private.</summary>
+    private static readonly HashSet<string> Packages = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".photoslibrary", ".photolibrary", ".app", ".appex", ".bundle", ".framework", ".plugin",
+        ".xcassets", ".iconset", ".xcodeproj", ".xcworkspace",
+    };
+
     /// <summary>
-    /// Lists media under <paramref name="folder"/> (recursively, skipping hidden files and macOS bundles'
-    /// insides), then reads EXIF for images in parallel. Cancellation stops both phases.
+    /// Lists media under <paramref name="folder"/> (recursively, skipping hidden files, bundles' insides and
+    /// <see cref="SkippedFolders"/>), then reads image headers in parallel. Cancellation stops both phases.
     /// </summary>
     public static IReadOnlyList<MediaFile> Scan(string folder, CancellationToken cancel = default, MetadataCache? cache = null)
     {
         if (!Directory.Exists(folder)) return [];
         var files = new List<MediaFile>();
-        foreach (var info in new DirectoryInfo(folder).EnumerateFiles("*", Options))
+        var pending = new Stack<DirectoryInfo>([new DirectoryInfo(folder)]);
+        while (pending.TryPop(out var dir))
         {
             cancel.ThrowIfCancellationRequested();
-            if (MediaTypes.KindOf(info.Name) is not { } kind) continue;
-            if (IsInsidePackage(info.FullName, folder)) continue;
-            files.Add(new MediaFile(info.FullName, kind, info.Length, info.LastWriteTime));
+            try
+            {
+                foreach (var info in dir.EnumerateFiles("*", Options))
+                    if (MediaTypes.KindOf(info.Name) is { } kind) files.Add(new MediaFile(info.FullName, kind, info.Length, info.LastWriteTime));
+                // Links are not followed (as recursive enumeration never did): they can loop or lead out of the folder
+                foreach (var sub in dir.EnumerateDirectories("*", Options))
+                    if (!IsSkipped(sub.Name) && sub.LinkTarget is null) pending.Push(sub);
+            }
+            catch (IOException)
+            {
+                // Removed or unmounted while scanning
+            }
         }
 
         files = PairLivePhotos(files);
@@ -35,14 +58,7 @@ public static class FolderScanner
         {
             var file = files[i];
             if (file.Kind == MediaKind.Image)
-            {
-                if (cache is null || !cache.TryGet(file.Path, file.Modified, file.Length, out var exif))
-                {
-                    exif = ExifReader.Read(file.Path);
-                    cache?.Set(file.Path, file.Modified, file.Length, exif);
-                }
-                file = file with { Taken = exif.Taken, Orientation = exif.Orientation };
-            }
+                file = file.With(cache?.GetOrRead(file.Path, file.Modified, file.Length) ?? ImageHeader.Read(file.Path));
             result[i] = file;
         });
         return result;
@@ -76,16 +92,8 @@ public static class FolderScanner
         return result;
     }
 
-    /// <summary>Photos libraries, apps and other bundles are folders with a dot-extension; their contents are private.</summary>
-    private static bool IsInsidePackage(string path, string root)
-    {
-        var dir = Path.GetDirectoryName(path);
-        while (dir is not null && dir.Length > root.Length)
-        {
-            var ext = Path.GetExtension(dir);
-            if (ext is ".photoslibrary" or ".app" or ".bundle" or ".framework" or ".photolibrary") return true;
-            dir = Path.GetDirectoryName(dir);
-        }
-        return false;
-    }
+    private static bool IsSkipped(string name) =>
+        SkippedFolders.Contains(name) || Packages.Contains(Path.GetExtension(name))
+        // Android resources: drawable-hdpi, mipmap-xxhdpi…
+        || name.StartsWith("drawable", StringComparison.OrdinalIgnoreCase) || name.StartsWith("mipmap", StringComparison.OrdinalIgnoreCase);
 }
