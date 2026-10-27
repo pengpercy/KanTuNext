@@ -49,6 +49,19 @@ public sealed class ZoomImage : Control
     private bool _fit = true;
     private Point? _dragFrom;
 
+    // A wheel gesture (trackpad scroll and its momentum) keeps the axis it starts on: vertical zooms, horizontal
+    // pans a photo wider than the view or else swipes to the neighbouring photo: any swipe past a short distance,
+    // however long, moves one photo
+    private const double SwipeDistance = 0.4, WheelPanDips = 50;
+    // How far a gesture travels before its axis is chosen: one stray first event doesn't decide it
+    private const double AxisDistance = 0.12;
+    private const long GestureGapMs = 250;
+    private long _lastWheel;
+    private bool? _horizontal;
+    private bool _swiped;
+    private Vector _start;
+    private double _swipe, _peak, _low;
+
     static ZoomImage()
     {
         AffectsRender<ZoomImage>(SourceProperty, TextLinesProperty, ShowTextOutlinesProperty);
@@ -89,6 +102,9 @@ public sealed class ZoomImage : Control
         get => GetValue(TextLinesProperty);
         set => SetValue(TextLinesProperty, value);
     }
+
+    /// <summary>A two-finger horizontal swipe asks for the next (+1) or previous (-1) photo, as in a phone's album.</summary>
+    public event Action<int>? SwipeRequested;
 
     /// <summary>Raised when zoom, fit mode or rotation changes (toolbar state, zoom readout).</summary>
     public event Action? ViewChanged;
@@ -341,8 +357,53 @@ public sealed class ZoomImage : Control
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
         base.OnPointerWheelChanged(e);
-        SetZoom(_zoom * Math.Pow(1.0015, e.Delta.Y * 100), e.GetPosition(this));
         e.Handled = true;
+        var now = Environment.TickCount64;
+        var delta = e.Delta;
+        if (now - _lastWheel > GestureGapMs)
+        {
+            _horizontal = null;
+            _start = default;
+            _swipe = _peak = 0;
+            _swiped = false;
+        }
+        _lastWheel = now;
+        if (_horizontal is null)
+        {
+            _start += delta;
+            if (Math.Abs(_start.X) + Math.Abs(_start.Y) < AxisDistance) return;
+            _horizontal = Math.Abs(_start.X) > Math.Abs(_start.Y);
+            // The distance travelled while undecided counts toward the zoom or swipe
+            delta = _start;
+        }
+        if (_horizontal == false)
+        {
+            SetZoom(_zoom * Math.Pow(1.0015, delta.Y * 100), e.GetPosition(this));
+            return;
+        }
+        if (Source is not null && RotatedPixels.Width * _zoom > Bounds.Width)
+        {
+            _offset += new Vector(delta.X * WheelPanDips, 0);
+            ClampOffset();
+            InvalidateVisual();
+            return;
+        }
+        var speed = Math.Abs(delta.X);
+        if (_swiped)
+        {
+            // The momentum after a swipe only slows down; speeding up again from its tail is the next swipe
+            _low = Math.Min(_low, speed);
+            if (_low > _peak * 0.5 || speed < _low * 1.6 + 0.03) return;
+            _swipe = _peak = 0;
+            _swiped = false;
+        }
+        _peak = Math.Max(_peak, speed);
+        _swipe += delta.X;
+        if (Math.Abs(_swipe) < SwipeDistance) return;
+        _swiped = true;
+        _low = speed;
+        // Fingers moving left bring in the next photo, as on a phone
+        SwipeRequested?.Invoke(_swipe < 0 ? 1 : -1);
     }
 
     private void OnMagnify(object? sender, PointerDeltaEventArgs e)

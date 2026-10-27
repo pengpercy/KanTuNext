@@ -51,6 +51,10 @@ public partial class ViewerWindow : Window
         // A smaller window must not leave the moved panel out of reach
         InfoPanel.SizeChanged += (_, _) => MoveInfoPanel(default);
         Viewer.SizeChanged += (_, _) => MoveInfoPanel(default);
+        Viewer.SwipeRequested += step =>
+        {
+            if (Model is { } vm) _ = step > 0 ? vm.GoForwardAsync() : vm.GoBackAsync();
+        };
         Viewer.ContextRequested += (_, e) =>
         {
             ShowContextMenu();
