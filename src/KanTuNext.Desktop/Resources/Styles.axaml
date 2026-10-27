@@ -84,18 +84,101 @@
 
   <!-- Right-click menus everywhere: compact rows, smaller type and icons than Fluent's touch-friendly defaults
        (items come from Services/Menus.cs) -->
-  <Style Selector="ContextMenu">
+  <Style Selector="ContextMenu, MenuFlyoutPresenter">
     <Setter Property="Padding" Value="4" />
-    <Setter Property="CornerRadius" Value="{StaticResource PanelCornerRadius}" />
+    <Setter Property="CornerRadius" Value="{StaticResource MenuCornerRadius}" />
   </Style>
-  <Style Selector="ContextMenu MenuItem">
+  <Style Selector="ContextMenu MenuItem, MenuFlyoutPresenter MenuItem">
     <Setter Property="FontSize" Value="12" />
     <Setter Property="Padding" Value="8,3" />
     <Setter Property="MinHeight" Value="0" />
-    <Setter Property="CornerRadius" Value="{StaticResource ItemCornerRadius}" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+  <!-- Over a blurred popup window (Services/Glass.cs): only a tint, so what's behind shows through -->
+  <Style Selector="ContextMenu.glass, MenuFlyoutPresenter.glass">
+    <Setter Property="Background" Value="{DynamicResource MenuGlassBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MenuGlassBorderBrush}" />
   </Style>
   <Style Selector="ContextMenu Separator">
     <Setter Property="Margin" Value="8,3" />
+  </Style>
+
+  <!-- Settings window (Views/SettingsWindow.axaml): groups of rows on cards. A row is a coloured icon tile, a
+       title with an optional hint, and its control on the right; dividers start under the titles (14+26+12). -->
+  <Style Selector="TextBlock.settingsHeader">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource SubTextBrush}" />
+    <Setter Property="Margin" Value="4,0,0,8" />
+  </Style>
+  <Style Selector="Border.settingsCard">
+    <Setter Property="Background" Value="{DynamicResource SettingsCardBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SettingsCardBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource PanelCornerRadius}" />
+    <Setter Property="Margin" Value="0,0,0,20" />
+  </Style>
+  <Style Selector="Grid.settingsRow">
+    <Setter Property="Margin" Value="14,9" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="ColumnSpacing" Value="12" />
+  </Style>
+  <Style Selector="Border.settingsDivider">
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Margin" Value="52,0,0,0" />
+    <Setter Property="Background" Value="{DynamicResource SettingsDividerBrush}" />
+  </Style>
+  <Style Selector="Border.settingsIcon">
+    <Setter Property="Width" Value="26" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.settingsIcon PathIcon">
+    <Setter Property="Width" Value="15" />
+    <Setter Property="Height" Value="15" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="TextBlock.settingsTitle">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.settingsHint">
+    <Setter Property="FontSize" Value="11.5" />
+    <Setter Property="Margin" Value="0,2,0,0" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Foreground" Value="{DynamicResource SubTextBrush}" />
+  </Style>
+  <!-- Switches without Fluent's 开/关 text beside them -->
+  <Style Selector="ToggleSwitch.settingsSwitch">
+    <Setter Property="OnContent" Value="{x:Null}" />
+    <Setter Property="OffContent" Value="{x:Null}" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Copy buttons: after copying, the icon gives way to a green check for a moment (Views/Motion.Copied) -->
+  <Style Selector="Button.copy PathIcon">
+    <Setter Property="RenderTransform" Value="scale(1)" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.3" Easing="BackEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.copy PathIcon.checkGlyph">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="RenderTransform" Value="scale(0.4)" />
+    <Setter Property="Foreground" Value="#30D158" />
+  </Style>
+  <Style Selector="Button.copy.copied PathIcon.copyGlyph">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="RenderTransform" Value="scale(0.4)" />
+  </Style>
+  <Style Selector="Button.copy.copied PathIcon.checkGlyph">
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="RenderTransform" Value="scale(1)" />
   </Style>
 
   <!-- Tooltips: even padding above and below (Fluent's 5/7 sits the text high) -->

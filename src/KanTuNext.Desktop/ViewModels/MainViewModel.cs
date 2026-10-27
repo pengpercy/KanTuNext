@@ -210,6 +210,11 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool LiveText => _settings.LiveTextEnabled;
 
+    /// <summary>A viewer on <paramref name="index"/> of <paramref name="items"/>, sharing this window's settings
+    /// (live text, 预览条, 轮播 interval).</summary>
+    public ViewerViewModel CreateViewer(IReadOnlyList<MediaFile> items, int index) =>
+        new(items, index, _settings, SaveSettings) { LiveText = LiveText };
+
     public string? SkippedVersion => _settings.SkippedVersion;
 
     /// <summary>Main window size and maximized state, restored on launch and saved when it closes.</summary>

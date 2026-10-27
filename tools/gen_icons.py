@@ -26,6 +26,10 @@ ICONS = [
     # viewer context menu and info panel
     "rotate-right", "content-copy", "folder-search-outline", "open-in-app", "close",
     "camera-iris", "map-marker-outline", "check", "hand-back-right", "hand-back-right-outline",
+    # viewer slideshow and filmstrip
+    "play", "pause", "dock-bottom", "filmstrip-box-multiple",
+    # settings window
+    "palette-outline", "dock-window", "database-outline", "update",
 ]
 
 def path_of(name):

@@ -190,7 +190,7 @@ public sealed class ThumbnailGrid : Control
                 }
             }
         }
-        service.Retain(visibleKeys);
+        service.Retain(this, visibleKeys);
     }
 
     private static readonly IBrush LiveBadgeBrush = new SolidColorBrush(Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF));

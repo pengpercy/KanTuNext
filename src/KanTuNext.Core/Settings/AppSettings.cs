@@ -40,6 +40,15 @@ public sealed class AppSettings
     /// Read once at startup, before Avalonia, so a change applies after a restart.</summary>
     public bool LinuxDrawnTitleBar { get; set; } = true;
 
+    /// <summary>Viewer: the strip of thumbnails before and after the photo (预览条) is shown.</summary>
+    public bool FilmstripVisible { get; set; }
+
+    /// <summary>Viewer: the 预览条 runs along the bottom instead of down the left side.</summary>
+    public bool FilmstripAtBottom { get; set; }
+
+    /// <summary>Viewer: seconds each photo stays up while 轮播 plays.</summary>
+    public double SlideshowSeconds { get; set; } = 3;
+
     /// <summary>Look for a new version on GitHub a few seconds after launch (the only network access).</summary>
     public bool CheckUpdatesAutomatically { get; set; } = true;
 

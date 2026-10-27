@@ -23,4 +23,13 @@ internal static class Menus
         item.Click += (_, _) => action();
         return item;
     }
+
+    /// <summary>Opens a right-click menu of <paramref name="items"/> on <paramref name="target"/>, over frosted glass
+    /// where the platform can blur behind it (<see cref="Glass"/>).</summary>
+    public static void Open(Control target, IEnumerable<object> items)
+    {
+        var menu = new ContextMenu { ItemsSource = items };
+        Glass.Attach(menu);
+        menu.Open(target);
+    }
 }

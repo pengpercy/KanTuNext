@@ -78,6 +78,10 @@
         <Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.18" /></Transitions>
       </Setter>
     </Style>
+    <!-- 轮播间隔: the seconds as text, a little wider than an icon -->
+    <Style Selector="Button.viewerTool.interval">
+      <Setter Property="Width" Value="46" />
+    </Style>
     <Style Selector="Border.toolDivider">
       <Setter Property="Width" Value="1" />
       <Setter Property="Height" Value="18" />
@@ -112,6 +116,17 @@
           <NativeMenuItem Header="向右旋转" Gesture="Cmd+R" Click="OnRotateRightMenu" />
           <NativeMenuItemSeparator />
           <NativeMenuItem Header="进入全屏幕" Gesture="Cmd+Ctrl+F" Click="OnFullScreenMenu" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="{Binding PlayMenuText}" Gesture="Cmd+P" IsEnabled="{Binding CanPlay}" Click="OnSlideshowMenu" />
+          <!-- Filled with the intervals in code (BuildIntervalMenus) -->
+          <NativeMenuItem Header="轮播间隔" IsEnabled="{Binding CanPlay}">
+            <NativeMenu />
+          </NativeMenuItem>
+          <NativeMenuItem Header="加快轮播" Gesture="Cmd+OemCloseBrackets" Click="OnFasterMenu" />
+          <NativeMenuItem Header="减慢轮播" Gesture="Cmd+OemOpenBrackets" Click="OnSlowerMenu" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="{Binding FilmstripMenuText}" Gesture="Cmd+B" Click="OnFilmstripMenu" />
+          <NativeMenuItem Header="{Binding FilmstripSideMenuText}" Gesture="Cmd+Shift+B" Click="OnSwapFilmstripMenu" />
         </NativeMenu>
       </NativeMenuItem>
       <NativeMenuItem Header="照片">
@@ -141,8 +156,26 @@
     </NativeMenu>
   </NativeMenu.Menu>
 
-  <Grid ColumnDefinitions="*,Auto" chrome:WindowDecorationProperties.ElementRole="User">
-  <Grid Grid.Column="0">
+  <Grid ColumnDefinitions="Auto,*,Auto" chrome:WindowDecorationProperties.ElementRole="User">
+  <!-- 预览条 down the left side: its clipping host slides open (Motion.Slide); the strip moves between hosts -->
+  <Panel x:Name="StripLeftHost" Grid.Column="0" Width="0" IsVisible="False" ClipToBounds="True" />
+
+  <Grid Grid.Column="1" RowDefinitions="*,Auto">
+  <Panel x:Name="StripBottomHost" Grid.Row="1" Height="0" IsVisible="False" ClipToBounds="True">
+    <!-- The strip itself: square thumbnails around the current photo, and a switch to the other edge -->
+    <Border x:Name="StripPanel" Background="#141416" BorderBrush="#1AFFFFFF">
+      <Panel>
+        <!-- Above the strip on the left side: the title bar (and macOS traffic lights) -->
+        <Border x:Name="StripTitleBar" Height="36" VerticalAlignment="Top" Background="Transparent"
+                chrome:WindowDecorationProperties.ElementRole="TitleBar" />
+        <views:Filmstrip x:Name="Strip" Index="{Binding Index}" />
+        <Button x:Name="StripSwap" Classes="panelTool" Click="OnSwapFilmstrip">
+          <PathIcon x:Name="StripSwapIcon" Data="{StaticResource Icon.dock-bottom}" Width="14" Height="14" />
+        </Button>
+      </Panel>
+    </Border>
+  </Panel>
+  <Grid Grid.Row="0">
     <views:ZoomImage x:Name="Viewer" Source="{Binding Image}" TextLines="{Binding OcrLines}" ShowTextOutlines="{Binding ShowOcr}" />
 
     <TextBlock IsVisible="{Binding ShowError}" Text="无法打开这张图片" Foreground="#99FFFFFF" FontSize="14"
@@ -162,8 +195,12 @@
                 chrome:WindowDecorationProperties.ElementRole="User">
           <TextBlock Text="◎ 实况" />
         </Button>
-        <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="Medium" Foreground="White" />
-        <TextBlock Text="{Binding Position}" FontSize="12" Foreground="#99FFFFFF" />
+        <!-- One line of runs, so the name and the count share a baseline (two blocks fall back to different fonts
+             for Chinese names and digits, and sit at different heights) -->
+        <TextBlock FontSize="12" VerticalAlignment="Center">
+          <Run Text="{Binding Title}" FontWeight="Medium" Foreground="White" />
+          <Run Text="{Binding PositionSuffix}" Foreground="#99FFFFFF" />
+        </TextBlock>
       </StackPanel>
     </Border>
 
@@ -184,8 +221,11 @@
               <TextBlock Text="{Binding Details.Summary, FallbackValue='正在读取…'}" FontSize="11.5" Foreground="#99FFFFFF" />
             </StackPanel>
             <!-- Tucked into the corner, clear of the title -->
-            <Button Grid.Column="1" Classes="panelTool" VerticalAlignment="Top" Margin="0,-6,0,0" ToolTip.Tip="复制全部信息" Click="OnCopyDetails">
-              <PathIcon Data="{StaticResource Icon.content-copy}" Width="12" Height="12" />
+            <Button Grid.Column="1" Classes="panelTool copy" VerticalAlignment="Top" Margin="0,-6,0,0" ToolTip.Tip="复制全部信息" Click="OnCopyDetails">
+              <Panel>
+                <PathIcon Classes="copyGlyph" Data="{StaticResource Icon.content-copy}" Width="12" Height="12" />
+                <PathIcon Classes="checkGlyph" Data="{StaticResource Icon.check}" Width="14" Height="14" />
+              </Panel>
             </Button>
             <Button Grid.Column="2" Classes="panelTool" VerticalAlignment="Top" Margin="0,-6,0,0" ToolTip.Tip="关闭（I）" Click="OnInfo">
               <PathIcon Data="{StaticResource Icon.close}" Width="12" Height="12" />
@@ -276,6 +316,22 @@
         <Button Classes="viewerTool" ToolTip.Tip="下一张（→）" Click="OnNext" IsEnabled="{Binding CanGoForward}">
           <PathIcon Data="{StaticResource Icon.chevron-right}" Width="20" Height="20" />
         </Button>
+        <!-- 轮播: while playing, a ring around the pause icon fills as the photo's turn runs out -->
+        <Button x:Name="PlayButton" Classes="viewerTool" ToolTip.Tip="自动轮播（P）" Click="OnSlideshow"
+                IsEnabled="{Binding CanPlay}" Classes.on="{Binding IsPlaying}">
+          <Panel>
+            <Ellipse Width="28" Height="28" Stroke="#26FFFFFF" StrokeThickness="2" IsVisible="{Binding IsPlaying}" />
+            <Arc x:Name="PlayProgress" Width="28" Height="28" StartAngle="-90" SweepAngle="0" Stroke="#FF2E9BFF"
+                 StrokeThickness="2" StrokeLineCap="Round" IsVisible="{Binding IsPlaying}" />
+            <PathIcon x:Name="PlayIcon" Data="{StaticResource Icon.play}" Width="18" Height="18" />
+          </Panel>
+        </Button>
+        <Button x:Name="IntervalButton" Classes="viewerTool interval" ToolTip.Tip="轮播间隔（[ 减慢，] 加快）" IsEnabled="{Binding CanPlay}">
+          <TextBlock Text="{Binding SlideshowText}" FontSize="12" />
+          <Button.Flyout>
+            <services:GlassMenuFlyout Placement="Top" />
+          </Button.Flyout>
+        </Button>
         <Border Classes="toolDivider" />
         <Button x:Name="TagGood" Classes="viewerTool" ToolTip.Tip="标记为「好」" Click="OnTag" Tag="Good">
           <PathIcon Data="{StaticResource Icon.thumb-up-outline}" Width="18" Height="18" />
@@ -316,6 +372,9 @@
                 IsVisible="{Binding OcrAvailable}" Classes.on="{Binding ShowOcr}">
           <PathIcon Data="{StaticResource Icon.text-recognition}" Width="18" Height="18" />
         </Button>
+        <Button Classes="viewerTool" ToolTip.Tip="预览条（B）" Click="OnFilmstrip" Classes.on="{Binding FilmstripVisible}">
+          <PathIcon Data="{StaticResource Icon.filmstrip-box-multiple}" Width="18" Height="18" />
+        </Button>
         <Button Classes="viewerTool" ToolTip.Tip="移到废纸篓（Delete）" Click="OnDelete">
           <PathIcon Data="{StaticResource Icon.trash-can-outline}" Width="18" Height="18" />
         </Button>
@@ -325,23 +384,36 @@
       </StackPanel>
     </Border>
   </Grid>
+  </Grid>
 
-    <!-- Recognized text, in reading order; selectable, with copy-all -->
-    <Border Grid.Column="1" Width="300" IsVisible="{Binding ShowOcr}" Background="#1C1C1E"
-            BorderBrush="#33FFFFFF" BorderThickness="1,0,0,0">
+    <!-- Recognized text, in reading order; selectable, with copy-all. Slides in from the right edge: the host
+         widens while the panel keeps its width (Motion.Slide). -->
+    <Panel x:Name="OcrHost" Grid.Column="2" Width="0" IsVisible="False" ClipToBounds="True">
+    <Border Width="300" HorizontalAlignment="Left" Background="#1C1C1E" BorderBrush="#33FFFFFF" BorderThickness="1,0,0,0">
       <Panel>
         <DockPanel Margin="16,44,12,16">
           <Grid x:Name="OcrHeader" DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
             <TextBlock Text="识别文字" FontSize="14" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="复制全部" Click="OnCopyText" IsEnabled="{Binding HasOcrText}"
-                    FontSize="12" Padding="10,4" VerticalAlignment="Center" />
+            <Button x:Name="OcrCopy" Grid.Column="1" Classes="panelTool copy" ToolTip.Tip="复制全部文字" Click="OnCopyText"
+                    IsEnabled="{Binding HasOcrText}" VerticalAlignment="Center">
+              <Panel>
+                <PathIcon Classes="copyGlyph" Data="{StaticResource Icon.content-copy}" Width="13" Height="13" />
+                <PathIcon Classes="checkGlyph" Data="{StaticResource Icon.check}" Width="15" Height="15" />
+              </Panel>
+            </Button>
           </Grid>
           <TextBlock DockPanel.Dock="Top" Text="{Binding OcrStatus}" IsVisible="{Binding OcrStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                      Foreground="#99FFFFFF" FontSize="12" Margin="0,0,0,8" />
-          <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-            <SelectableTextBlock Text="{Binding OcrText}" TextWrapping="Wrap" FontSize="13" LineHeight="20"
-                                 Foreground="#E6FFFFFF" SelectionBrush="#662E9BFF" />
-          </ScrollViewer>
+          <Panel>
+            <ScrollViewer x:Name="OcrScroll" HorizontalScrollBarVisibility="Disabled">
+              <SelectableTextBlock x:Name="OcrTextBlock" Text="{Binding OcrText}" TextWrapping="Wrap" FontSize="13" LineHeight="20"
+                                   Foreground="#E6FFFFFF" SelectionBrush="#662E9BFF" />
+            </ScrollViewer>
+            <!-- 复制全部: rings the text with a brief glow (Motion.Glow), drawn around the visible text only -->
+            <Border x:Name="OcrGlow" Margin="-8,-6,-4,-6" CornerRadius="{StaticResource CardCornerRadius}" Opacity="0"
+                    IsHitTestVisible="False" BorderThickness="1.5" BorderBrush="#B330D158" Background="#1230D158"
+                    BoxShadow="0 0 18 1 #8030D158, inset 0 0 12 0 #2E30D158" VerticalAlignment="Top" />
+          </Panel>
         </DockPanel>
         <!-- In the panel's top-right corner, centred in the 36px title strip (below drawn caption buttons) -->
         <Button x:Name="OcrClose" Classes="panelTool" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"
@@ -350,5 +422,6 @@
         </Button>
       </Panel>
     </Border>
+    </Panel>
   </Grid>
 </Window>

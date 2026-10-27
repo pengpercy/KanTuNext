@@ -5,8 +5,10 @@
   <ResourceDictionary.ThemeDictionaries>
     <ResourceDictionary x:Key="Light">
       <SolidColorBrush x:Key="SidebarBrush" Color="#ECECEE" />
-      <!-- Over the window's blurred backdrop (macOS vibrancy, Windows Mica/acrylic) -->
-      <SolidColorBrush x:Key="SidebarTranslucentBrush" Color="#59F2F2F4" />
+      <!-- Over the window's blurred backdrop. macOS: the system's sidebar material does the tinting, as in
+           Finder (Services/Glass.cs). Windows: acrylic comes out bright, so a grey tint takes it down. -->
+      <SolidColorBrush x:Key="SidebarTranslucentBrush" Color="#00F2F2F4" />
+      <SolidColorBrush x:Key="SidebarAcrylicBrush" Color="#47BDBDC2" />
       <SolidColorBrush x:Key="SidebarSelectedBrush" Color="#1A000000" />
       <SolidColorBrush x:Key="SidebarHoverBrush" Color="#0D000000" />
       <SolidColorBrush x:Key="SidebarHeaderBrush" Color="#8E8E93" />
@@ -32,10 +34,19 @@
       <SolidColorBrush x:Key="TextControlBackground" Color="#F4F4F4" />
       <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#F4F4F4" />
       <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFFFFF" />
+      <!-- A light tint over the blurred menu material (Services/Glass.cs) -->
+      <SolidColorBrush x:Key="MenuGlassBrush" Color="#47FFFFFF" />
+      <SolidColorBrush x:Key="MenuGlassBorderBrush" Color="#1F000000" />
+      <!-- Settings window: grouped cards on a slightly darker page -->
+      <SolidColorBrush x:Key="SettingsPageBrush" Color="#F2F2F5" />
+      <SolidColorBrush x:Key="SettingsCardBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="SettingsCardBorderBrush" Color="#12000000" />
+      <SolidColorBrush x:Key="SettingsDividerBrush" Color="#14000000" />
     </ResourceDictionary>
     <ResourceDictionary x:Key="Dark">
       <SolidColorBrush x:Key="SidebarBrush" Color="#2C2C2E" />
-      <SolidColorBrush x:Key="SidebarTranslucentBrush" Color="#40202024" />
+      <SolidColorBrush x:Key="SidebarTranslucentBrush" Color="#00202024" />
+      <SolidColorBrush x:Key="SidebarAcrylicBrush" Color="#8C141416" />
       <SolidColorBrush x:Key="SidebarSelectedBrush" Color="#1AFFFFFF" />
       <SolidColorBrush x:Key="SidebarHoverBrush" Color="#0DFFFFFF" />
       <SolidColorBrush x:Key="SidebarHeaderBrush" Color="#98989D" />
@@ -60,6 +71,12 @@
       <SolidColorBrush x:Key="TextControlBackground" Color="#262626" />
       <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#2C2C2C" />
       <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#1E1E1E" />
+      <SolidColorBrush x:Key="MenuGlassBrush" Color="#2E1C1C1E" />
+      <SolidColorBrush x:Key="MenuGlassBorderBrush" Color="#2EFFFFFF" />
+      <SolidColorBrush x:Key="SettingsPageBrush" Color="#1A1A1C" />
+      <SolidColorBrush x:Key="SettingsCardBrush" Color="#262628" />
+      <SolidColorBrush x:Key="SettingsCardBorderBrush" Color="#14FFFFFF" />
+      <SolidColorBrush x:Key="SettingsDividerBrush" Color="#14FFFFFF" />
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
   <Thickness x:Key="TextControlBorderThemeThicknessFocused">1</Thickness>
@@ -68,6 +85,8 @@
   <CornerRadius x:Key="PanelCornerRadius">10</CornerRadius>
   <CornerRadius x:Key="CardCornerRadius">7</CornerRadius>
   <CornerRadius x:Key="ItemCornerRadius">5</CornerRadius>
+  <!-- Menus are tighter than panels, as the system's own -->
+  <CornerRadius x:Key="MenuCornerRadius">6</CornerRadius>
   <!-- Label/value rows: one CJK font for both columns (its Latin too), so a Chinese label and a Latin-only value
        sit on the same baseline; mixed fonts place text differently within the same line height -->
   <FontFamily x:Key="InfoRowFont">PingFang SC, Microsoft YaHei UI, Noto Sans CJK SC, $Default</FontFamily>

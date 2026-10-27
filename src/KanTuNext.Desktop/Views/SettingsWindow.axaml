@@ -3,52 +3,116 @@
         xmlns:vm="clr-namespace:KanTuNext.Desktop.ViewModels"
         x:Class="KanTuNext.Desktop.Views.SettingsWindow" x:DataType="vm:SettingsViewModel"
         Title="设置" Icon="/Assets/kantunext.png"
-        Width="460" SizeToContent="Height" CanResize="False"
-        WindowStartupLocation="CenterOwner" Background="{DynamicResource PageBrush}" FontSize="13">
-  <StackPanel Margin="24,20,24,24" Spacing="20">
-    <StackPanel Spacing="8">
-      <TextBlock Text="外观" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-      <StackPanel Orientation="Horizontal" Spacing="18">
-        <RadioButton GroupName="theme" Content="跟随系统" IsChecked="{Binding IsSystemTheme}" />
-        <RadioButton GroupName="theme" Content="浅色" IsChecked="{Binding IsLightTheme}" />
-        <RadioButton GroupName="theme" Content="深色" IsChecked="{Binding IsDarkTheme}" />
+        Width="500" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource SettingsPageBrush}" FontSize="13">
+  <!-- Grouped cards (row styles in Resources/Styles.axaml): icon tile, title and hint, control on the right -->
+  <StackPanel Margin="20,18,20,20">
+    <TextBlock Classes="settingsHeader" Text="外观" />
+    <Border Classes="settingsCard">
+      <Grid Classes="settingsRow" ColumnDefinitions="Auto,*,Auto">
+        <Border Classes="settingsIcon" Background="#5E5CE6">
+          <PathIcon Data="{StaticResource Icon.palette-outline}" />
+        </Border>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+          <TextBlock Classes="settingsTitle" Text="主题" />
+          <TextBlock Classes="settingsHint" Text="跟随系统，或固定使用浅色、深色" />
+        </StackPanel>
+        <Border Grid.Column="2" VerticalAlignment="Center" CornerRadius="6" ClipToBounds="True"
+                Background="{DynamicResource SegmentBrush}" BorderBrush="{DynamicResource SegmentBorderBrush}" BorderThickness="1">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton Classes="segment" GroupName="theme" Content="跟随系统" IsChecked="{Binding IsSystemTheme}" />
+            <RadioButton Classes="segment" GroupName="theme" Content="浅色" IsChecked="{Binding IsLightTheme}" />
+            <RadioButton Classes="segment" GroupName="theme" Content="深色" IsChecked="{Binding IsDarkTheme}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
+
+    <StackPanel IsVisible="{Binding OcrAvailable}">
+      <TextBlock Classes="settingsHeader" Text="看图" />
+      <Border Classes="settingsCard">
+        <Grid Classes="settingsRow" ColumnDefinitions="Auto,*,Auto">
+          <Border Classes="settingsIcon" Background="#0A84FF">
+            <PathIcon Data="{StaticResource Icon.text-recognition}" />
+          </Border>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center">
+            <TextBlock Classes="settingsTitle" Text="直接选中图中文字" />
+            <TextBlock Classes="settingsHint" Text="自动识别图片中的文字，可在图片上选中复制" />
+          </StackPanel>
+          <ToggleSwitch Grid.Column="2" Classes="settingsSwitch" IsChecked="{Binding LiveText}" />
+        </Grid>
+      </Border>
+    </StackPanel>
+
+    <StackPanel IsVisible="{Binding IsLinux}">
+      <TextBlock Classes="settingsHeader" Text="窗口" />
+      <Border Classes="settingsCard">
+        <Grid Classes="settingsRow" ColumnDefinitions="Auto,*,Auto">
+          <Border Classes="settingsIcon" Background="#8E8E93">
+            <PathIcon Data="{StaticResource Icon.dock-window}" />
+          </Border>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center">
+            <TextBlock Classes="settingsTitle" Text="使用自绘标题栏" />
+            <TextBlock Classes="settingsHint" Text="关闭后由窗口管理器绘制标题栏" IsVisible="{Binding !RestartNeeded}" />
+            <TextBlock Classes="settingsHint" Text="重启看图后生效" Foreground="#FF9F0A" IsVisible="{Binding RestartNeeded}" />
+          </StackPanel>
+          <ToggleSwitch Grid.Column="2" Classes="settingsSwitch" IsChecked="{Binding LinuxDrawnTitleBar}" />
+        </Grid>
+      </Border>
+    </StackPanel>
+
+    <TextBlock Classes="settingsHeader" Text="存储" />
+    <Border Classes="settingsCard">
+      <Grid Classes="settingsRow" ColumnDefinitions="Auto,*,Auto">
+        <Border Classes="settingsIcon" Background="#FF9F0A">
+          <PathIcon Data="{StaticResource Icon.database-outline}" />
+        </Border>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+          <TextBlock Classes="settingsTitle" Text="缩略图缓存" />
+          <TextBlock Classes="settingsHint" Text="{Binding CacheText}" />
+        </StackPanel>
+        <Button Grid.Column="2" Content="清除" Click="OnClearCache" VerticalAlignment="Center" Padding="14,4" />
+      </Grid>
+    </Border>
+
+    <TextBlock Classes="settingsHeader" Text="更新" />
+    <Border Classes="settingsCard">
+      <StackPanel>
+        <Grid Classes="settingsRow" ColumnDefinitions="Auto,*,Auto">
+          <Border Classes="settingsIcon" Background="#30D158">
+            <PathIcon Data="{StaticResource Icon.update}" />
+          </Border>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center">
+            <TextBlock Classes="settingsTitle" Text="{Binding VersionText}" />
+            <TextBlock Classes="settingsHint" Text="新版本从 GitHub 获取" />
+          </StackPanel>
+          <Button Grid.Column="2" Content="检查更新" Click="OnCheckUpdates" VerticalAlignment="Center" Padding="14,4" />
+        </Grid>
+        <Border Classes="settingsDivider" />
+        <Grid Classes="settingsRow" ColumnDefinitions="Auto,*,Auto">
+          <Panel Width="26" />
+          <TextBlock Grid.Column="1" Classes="settingsTitle" Text="启动后自动检查更新" VerticalAlignment="Center" />
+          <ToggleSwitch Grid.Column="2" Classes="settingsSwitch" IsChecked="{Binding CheckUpdatesAutomatically}" />
+        </Grid>
+        <Border Classes="settingsDivider" />
+        <Grid Classes="settingsRow" ColumnDefinitions="Auto,*,Auto">
+          <Panel Width="26" />
+          <StackPanel Grid.Column="1" VerticalAlignment="Center">
+            <TextBlock Classes="settingsTitle" Text="自动下载更新" />
+            <TextBlock Classes="settingsHint" Text="下载完成后，只需重新启动" />
+          </StackPanel>
+          <ToggleSwitch Grid.Column="2" Classes="settingsSwitch" IsChecked="{Binding InstallUpdatesAutomatically}"
+                        IsEnabled="{Binding CheckUpdatesAutomatically}" />
+        </Grid>
       </StackPanel>
-    </StackPanel>
+    </Border>
 
-    <StackPanel Spacing="8" IsVisible="{Binding OcrAvailable}">
-      <TextBlock Text="看图" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-      <CheckBox Content="自动识别图片中的文字，可直接在图片上选中复制" IsChecked="{Binding LiveText}" />
-    </StackPanel>
-
-    <StackPanel Spacing="8" IsVisible="{Binding IsLinux}">
-      <TextBlock Text="窗口" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-      <CheckBox Content="使用自绘标题栏" IsChecked="{Binding LinuxDrawnTitleBar}" />
-      <TextBlock Text="重启看图后生效" FontSize="12" Foreground="{DynamicResource SubTextBrush}" IsVisible="{Binding RestartNeeded}" />
-    </StackPanel>
-
-    <StackPanel Spacing="8">
-      <TextBlock Text="缓存" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-      <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Text="{Binding CacheText}" VerticalAlignment="Center" Foreground="{DynamicResource SubTextBrush}"
-                   TextWrapping="Wrap" />
-        <Button Grid.Column="1" Content="清除缩略图缓存" Click="OnClearCache" Margin="12,0,0,0" />
-      </Grid>
-    </StackPanel>
-
-    <StackPanel Spacing="8">
-      <TextBlock Text="更新" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-      <Grid ColumnDefinitions="*,Auto">
-        <CheckBox Content="启动后自动检查更新" IsChecked="{Binding CheckUpdatesAutomatically}" VerticalAlignment="Center" />
-        <Button Grid.Column="1" Content="检查更新" Click="OnCheckUpdates" Margin="12,0,0,0" />
-      </Grid>
-      <CheckBox Content="自动下载更新，只需重新启动" IsChecked="{Binding InstallUpdatesAutomatically}"
-                IsEnabled="{Binding CheckUpdatesAutomatically}" />
-    </StackPanel>
-
-    <StackPanel Spacing="4">
-      <TextBlock Text="关于" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-      <TextBlock Text="{Binding VersionText}" Foreground="{DynamicResource SubTextBrush}" />
-      <TextBlock Text="照片只在本机处理，不收集、不上传任何数据；只有检查更新时会访问 GitHub。" TextWrapping="Wrap"
+    <!-- About: the app, quietly, under the cards -->
+    <StackPanel Spacing="6" Margin="0,4,0,0" HorizontalAlignment="Center">
+      <Image Source="/Assets/kantunext.png" Width="40" Height="40" HorizontalAlignment="Center" />
+      <TextBlock Text="照片只在本机处理，不收集、不上传任何数据" FontSize="11.5" HorizontalAlignment="Center"
+                 Foreground="{DynamicResource SubTextBrush}" />
+      <TextBlock Text="只有检查更新时会访问 GitHub" FontSize="11.5" HorizontalAlignment="Center" Margin="0,-4,0,0"
                  Foreground="{DynamicResource SubTextBrush}" />
     </StackPanel>
   </StackPanel>

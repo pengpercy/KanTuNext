@@ -103,6 +103,11 @@ internal static class WindowChrome
                     if (stack.GetVisualParent() is Panel { Name: "PART_OverlayWrapper" } wrapper)
                         wrapper.Margin = default;
                     break;
+                // Windows extended into the title bar paint their own; the template's title bar fill underneath
+                // would show through the main window's translucent sidebar as an opaque strip.
+                case "PART_TitleBar" when OwnerWindow(panel) is { ExtendClientAreaToDecorationsHint: true }:
+                    panel.Background = Avalonia.Media.Brushes.Transparent;
+                    break;
                 // Windows extended into the title bar draw their own title; hide the template's duplicate.
                 case "PART_TitleTextPanel" when OwnerWindow(panel) is { ExtendClientAreaToDecorationsHint: true }:
                     foreach (var text in panel.Children.OfType<TextBlock>()) text.IsVisible = false;

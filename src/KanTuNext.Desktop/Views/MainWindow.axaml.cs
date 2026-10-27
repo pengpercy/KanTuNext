@@ -5,6 +5,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using KanTuNext.Core.Library;
 using KanTuNext.Core.Settings;
 using KanTuNext.Desktop.Services;
@@ -26,7 +27,7 @@ public partial class MainWindow : Window
             var images = vm.Groups?.SelectMany(g => g.Items).Where(f => f.Kind == KanTuNext.Core.Library.MediaKind.Image).ToList() ?? [];
             // After the double-click has been handled: opened in the middle of it, the viewer would come up and
             // then fall behind the main window, which macOS raises again when it finishes processing the click
-            Dispatcher.UIThread.Post(() => ViewerWindow.Open(this, images, images.IndexOf(file), vm.LiveText), DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(() => ViewerWindow.Open(this, vm.CreateViewer(images, images.IndexOf(file))), DispatcherPriority.Background);
         };
         if (WindowChrome.CaptionButtonsOnLeft) SidebarToggle.IsVisible = true;
         else SidebarMenuButton.IsVisible = true;
@@ -49,6 +50,10 @@ public partial class MainWindow : Window
             if (e.Property == ActualTransparencyLevelProperty) UpdateTranslucency();
         };
         UpdateTranslucency();
+        // Again once the native window exists, and after a theme switch (AppKit rebuilds the blur's look)
+        Opened += (_, _) => UpdateTranslucency();
+        ActualThemeVariantChanged += (_, _) => Dispatcher.UIThread.Post(UpdateTranslucency, DispatcherPriority.Background);
+        Sidebar.AddHandler(PointerPressedEvent, OnSidebarPressed, RoutingStrategies.Bubble);
         DataContextChanged += (_, _) =>
         {
             if (DataContext is not MainViewModel vm) return;
@@ -160,7 +165,7 @@ public partial class MainWindow : Window
             items.Add(new Separator());
             items.Add(Item("移到废纸篓", "trash-can-outline", () => vm.Delete(file), new KeyGesture(Key.Back, KeyModifiers.Meta)));
         }
-        new ContextMenu { ItemsSource = items }.Open(Grid);
+        Menus.Open(Grid, items);
     }
 
     private static readonly ImageLoader CopyLoader = new();
@@ -173,9 +178,27 @@ public partial class MainWindow : Window
 
     private ColumnDefinition SidebarColumn => Layout.ColumnDefinitions[0];
 
-    private void UpdateTranslucency() =>
-        Classes.Set("translucent", ActualTransparencyLevel != WindowTransparencyLevel.None
-                                   && ActualTransparencyLevel != WindowTransparencyLevel.Transparent);
+    private void UpdateTranslucency()
+    {
+        var translucent = ActualTransparencyLevel != WindowTransparencyLevel.None
+                          && ActualTransparencyLevel != WindowTransparencyLevel.Transparent;
+        Classes.Set("translucent", translucent);
+        Classes.Set("acrylic", translucent && OperatingSystem.IsWindows());
+        if (translucent) Glass.UseSidebarMaterial(this);
+    }
+
+    /// <summary>
+    /// The sidebar's blank space moves the window, as Finder's does. Rows, buttons and the scroll bar take their
+    /// own presses first. (A title-bar role wouldn't do on macOS, which checks only the element right under the
+    /// pointer, not the sidebar around it.)
+    /// </summary>
+    private void OnSidebarPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.Handled || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || e.ClickCount > 1) return;
+        if (e.Source is Avalonia.Visual source && source.FindAncestorOfType<Avalonia.Controls.Primitives.ScrollBar>(true) is not null) return;
+        BeginMoveDrag(e);
+        e.Handled = true;
+    }
 
     private const double SidebarSlideMs = 250;
     private int _sidebarSlide;

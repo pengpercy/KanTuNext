@@ -27,6 +27,9 @@
     <Style Selector="Window.translucent Border#Sidebar">
       <Setter Property="Background" Value="{DynamicResource SidebarTranslucentBrush}" />
     </Style>
+    <Style Selector="Window.translucent.acrylic Border#Sidebar">
+      <Setter Property="Background" Value="{DynamicResource SidebarAcrylicBrush}" />
+    </Style>
     <!-- Sidebar edge: a hairline with a wider invisible grip -->
     <Style Selector="GridSplitter#SidebarSplitter">
       <Setter Property="Width" Value="7" />

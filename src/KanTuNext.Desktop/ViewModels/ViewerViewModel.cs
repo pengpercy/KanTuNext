@@ -1,8 +1,10 @@
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using KanTuNext.Core.Library;
 using KanTuNext.Core.Ocr;
+using KanTuNext.Core.Settings;
 using KanTuNext.Desktop.Services;
 using KanTuNext.Desktop.Services.Ocr;
 
@@ -17,18 +19,29 @@ public sealed partial class ViewerViewModel : ObservableObject
     private LoadedImage? _loaded;
     private int _frame;
     private readonly DispatcherTimer _animation = new(DispatcherPriority.Render);
+    private readonly AppSettings _settings;
+    private readonly Action _save;
 
-    public ViewerViewModel(IReadOnlyList<MediaFile> items, int index)
+    public ViewerViewModel(IReadOnlyList<MediaFile> items, int index, AppSettings settings, Action save)
     {
         _items = [.. items];
+        _settings = settings;
+        _save = save;
         Index = Math.Clamp(index, 0, Math.Max(0, _items.Count - 1));
         _animation.Tick += (_, _) => NextFrame();
+        _slideshow.Tick += (_, _) =>
+        {
+            // The next photo restarts the clock once it is on screen (ShowAsync), so slow decodes don't shorten it
+            _slideshow.Stop();
+            _slideStarted = 0;
+            _ = ShowAsync(CanGoForward ? Index + 1 : 0);
+        };
         _live.Tick += (_, _) => NextLiveFrame();
         AppServices.Tags.Changed += () => Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(Tag)));
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Current), nameof(Title), nameof(CanGoBack), nameof(CanGoForward), nameof(Position), nameof(Tag), nameof(IsLivePhoto))]
+    [NotifyPropertyChangedFor(nameof(Current), nameof(Title), nameof(CanGoBack), nameof(CanGoForward), nameof(Position), nameof(PositionSuffix), nameof(Tag), nameof(IsLivePhoto))]
     public partial int Index { get; private set; }
 
     [ObservableProperty]
@@ -40,8 +53,14 @@ public sealed partial class ViewerViewModel : ObservableObject
     public partial bool IsLoading { get; private set; }
 
     public MediaFile? Current => _items.Count > 0 ? _items[Index] : null;
+
+    /// <summary>The photos being paged through (shrinks as photos are deleted), for the 预览条.</summary>
+    public IReadOnlyList<MediaFile> Items => _items;
     public string Title => Current?.Name ?? "看图";
     public string Position => _items.Count > 1 ? $"{Index + 1} / {_items.Count}" : "";
+
+    /// <summary>The count after the name in the title strip, spaced as the strip had it.</summary>
+    public string PositionSuffix => Position.Length > 0 ? "\u2002 " + Position : "";
     public bool CanGoBack => Index > 0;
     public bool CanGoForward => Index < _items.Count - 1;
     public bool ShowError => !IsLoading && Image is null && Current is not null;
@@ -73,6 +92,96 @@ public sealed partial class ViewerViewModel : ObservableObject
         if (Current is not { } item) return null;
         if (_loaded is { IsReduced: false } loaded) return loaded.First;
         return (await Loader.LoadAsync(item.Path, ImageLoader.FullEdge))?.First;
+    }
+
+    // ---- 预览条: thumbnails of the photos before and after this one, down the left side or along the bottom
+
+    public bool FilmstripVisible
+    {
+        get => _settings.FilmstripVisible;
+        set
+        {
+            if (_settings.FilmstripVisible == value) return;
+            _settings.FilmstripVisible = value;
+            _save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(FilmstripMenuText));
+        }
+    }
+
+    public bool FilmstripAtBottom
+    {
+        get => _settings.FilmstripAtBottom;
+        set
+        {
+            if (_settings.FilmstripAtBottom == value) return;
+            _settings.FilmstripAtBottom = value;
+            _save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(FilmstripSideMenuText));
+        }
+    }
+
+    public string FilmstripMenuText => FilmstripVisible ? "隐藏预览条" : "显示预览条";
+    public string FilmstripSideMenuText => FilmstripAtBottom ? "预览条放到左侧" : "预览条放到底部";
+
+    // ---- 轮播: pages forward on a timer, back to the first photo after the last
+
+    public static IReadOnlyList<double> SlideshowIntervals { get; } = [1, 2, 3, 5, 8, 15];
+
+    private readonly DispatcherTimer _slideshow = new();
+    private long _slideStarted;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlayMenuText))]
+    public partial bool IsPlaying { get; private set; }
+
+    public string PlayMenuText => IsPlaying ? "暂停轮播" : "自动轮播";
+
+    public bool CanPlay => _items.Count > 1;
+
+    public double SlideshowSeconds
+    {
+        get => Math.Clamp(_settings.SlideshowSeconds, 1, 60);
+        set
+        {
+            _settings.SlideshowSeconds = value;
+            _save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SlideshowText));
+            RestartSlide();
+        }
+    }
+
+    public string SlideshowText => $"{SlideshowSeconds:0.#} 秒";
+
+    /// <summary>How far this photo's turn has run, 0–1 (0 while the next photo is still loading).</summary>
+    public double SlideProgress => _slideStarted == 0 ? 0
+        : Math.Clamp(Stopwatch.GetElapsedTime(_slideStarted).TotalSeconds / SlideshowSeconds, 0, 1);
+
+    /// <summary>The next shorter (<paramref name="step"/> 1, ]) or longer (-1, [) interval.</summary>
+    public void ChangeSlideshowSpeed(int step)
+    {
+        var intervals = SlideshowIntervals;
+        var current = Enumerable.Range(0, intervals.Count).MinBy(i => Math.Abs(intervals[i] - SlideshowSeconds));
+        var next = Math.Clamp(current - step, 0, intervals.Count - 1);
+        if (intervals[next] != SlideshowSeconds) SlideshowSeconds = intervals[next];
+    }
+
+    public void ToggleSlideshow()
+    {
+        IsPlaying = CanPlay && !IsPlaying;
+        RestartSlide();
+    }
+
+    private void RestartSlide()
+    {
+        _slideshow.Stop();
+        _slideStarted = 0;
+        if (!IsPlaying) return;
+        _slideshow.Interval = TimeSpan.FromSeconds(SlideshowSeconds);
+        _slideStarted = Stopwatch.GetTimestamp();
+        _slideshow.Start();
     }
 
     // ---- 图片信息 panel: stays open from photo to photo, refreshed for each
@@ -253,6 +362,8 @@ public sealed partial class ViewerViewModel : ObservableObject
         if (!await Task.Run(() => AppServices.Delete(item.Path))) return false;
         _items.RemoveAt(Index);
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(CanPlay));
+        if (!CanPlay && IsPlaying) ToggleSlideshow();
         if (_items.Count == 0)
         {
             StopAnimation();
@@ -276,8 +387,12 @@ public sealed partial class ViewerViewModel : ObservableObject
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(Tag));
         OnPropertyChanged(nameof(Position));
+        OnPropertyChanged(nameof(PositionSuffix));
         OnPropertyChanged(nameof(IsLivePhoto));
         var version = ++_loadVersion;
+        // 轮播 waits for this photo, whether it advanced or the user paged
+        _slideshow.Stop();
+        _slideStarted = 0;
         // The previous photo's text must not be selectable on this one while it loads
         _ocr?.Cancel();
         Ocr = null;
@@ -296,6 +411,7 @@ public sealed partial class ViewerViewModel : ObservableObject
         IsLoading = false;
         if (loaded is { IsAnimated: true }) StartAnimation();
         StartRecognition();
+        RestartSlide();
         if (ShowInfo) _ = LoadDetailsAsync();
         if (CanGoForward) Loader.Prefetch(_items[Index + 1].Path, ScreenEdge);
         if (CanGoBack) Loader.Prefetch(_items[Index - 1].Path, ScreenEdge);
@@ -322,6 +438,7 @@ public sealed partial class ViewerViewModel : ObservableObject
     public void Close()
     {
         _ocr?.Cancel();
+        _slideshow.Stop();
         StopAnimation();
         StopLive();
     }

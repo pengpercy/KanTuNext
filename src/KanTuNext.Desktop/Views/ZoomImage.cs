@@ -99,8 +99,15 @@ public sealed class ZoomImage : Control
     /// is taken as the same photo at another resolution, or the next frame of an animation).</summary>
     public bool ResetOnNextSource { get; set; }
 
+    /// <summary><paramref name="centre"/> moved by <paramref name="by"/> along the slide's axis.</summary>
+    private static Vector Shifted(Point centre, double by, bool vertical) =>
+        vertical ? new Vector(centre.X, centre.Y + by) : new Vector(centre.X + by, centre.Y);
+
     /// <summary>Which way the next photo change goes: 1 forward, -1 back, 0 in place (a delete): sets the slide.</summary>
     public int TransitionDirection { get; set; }
+
+    /// <summary>Photos slide up and down instead of sideways (the 预览条 runs down the left side).</summary>
+    public bool TransitionVertical { get; set; }
     public double Zoom => _zoom;
 
     /// <summary>Image size after rotation, in image pixels.</summary>
@@ -263,7 +270,8 @@ public sealed class ZoomImage : Control
             // Bilinear while moving: mipmapped filtering of a large photo would stall the first frames
             var moving = new RenderOptions { BitmapInterpolationMode = BitmapInterpolationMode.LowQuality };
             var t = _transitionMs / TransitionMs;
-            var slide = Math.Min(Bounds.Width * 0.08, 72) * _outgoingDirection;
+            var vertical = TransitionVertical;
+            var slide = Math.Min((vertical ? Bounds.Height : Bounds.Width) * 0.08, 72) * _outgoingDirection;
             // The old photo leaves over the first half, the new one arrives over the last 60%: a brief fade
             // through the background instead of two translucent photos on top of each other
             var leave = EaseInOut(t / 0.5);
@@ -274,7 +282,7 @@ public sealed class ZoomImage : Control
                 var scale = 1 - 0.03 * leave;
                 var centre = Bounds.Center;
                 using (context.PushTransform(_outgoingTransform * Matrix.CreateTranslation(-centre.X, -centre.Y)
-                           * Matrix.CreateScale(scale, scale) * Matrix.CreateTranslation(centre.X - slide * leave, centre.Y)))
+                           * Matrix.CreateScale(scale, scale) * Matrix.CreateTranslation(Shifted(centre, -slide * leave, vertical))))
                 using (context.PushOpacity(1 - leave))
                 using (context.PushRenderOptions(moving))
                     context.DrawImage(outgoing, new Rect(0, 0, outgoing.PixelSize.Width, outgoing.PixelSize.Height));
@@ -294,7 +302,7 @@ public sealed class ZoomImage : Control
                 var scale = 0.97 + 0.03 * arrive;
                 var centre = Bounds.Center;
                 using (context.PushTransform(transform * Matrix.CreateTranslation(-centre.X, -centre.Y)
-                           * Matrix.CreateScale(scale, scale) * Matrix.CreateTranslation(centre.X + slide * (1 - arrive), centre.Y)))
+                           * Matrix.CreateScale(scale, scale) * Matrix.CreateTranslation(Shifted(centre, slide * (1 - arrive), vertical))))
                 using (context.PushOpacity(arrive))
                 using (context.PushRenderOptions(moving))
                     context.DrawImage(bitmap, new Rect(0, 0, w, h));
@@ -436,7 +444,7 @@ public sealed class ZoomImage : Control
     private static Cursor HandCursorFrom(Geometry? glyph, StandardCursorType fallback)
     {
         if (glyph is null) return new Cursor(fallback);
-        const int size = 20;
+        const int size = 32;
         var bitmap = new RenderTargetBitmap(new PixelSize(size, size));
         using (var context = bitmap.CreateDrawingContext())
         using (context.PushTransform(Matrix.CreateTranslation(1, 1) * Matrix.CreateScale(size / 26.0, size / 26.0)))

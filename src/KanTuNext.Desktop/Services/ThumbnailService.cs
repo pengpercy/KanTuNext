@@ -27,6 +27,7 @@ public sealed class ThumbnailService
     private readonly List<Request> _pending = [];
     private readonly HashSet<string> _queued = [];
     private readonly HashSet<string> _failed = [];
+    private readonly Dictionary<object, IReadOnlySet<string>> _visible = [];
     private readonly SemaphoreSlim _work = new(0);
 
     private ThumbnailService()
@@ -86,13 +87,16 @@ public sealed class ThumbnailService
     }
 
     /// <summary>Drops queued requests that are no longer on screen.</summary>
-    public void Retain(IReadOnlySet<string> visibleKeys)
+    public void Retain(object owner, IReadOnlySet<string>? visibleKeys)
     {
         lock (_gate)
         {
+            // The grid and a viewer's 预览条 ask at the same time: keep what either still shows
+            if (visibleKeys is null) _visible.Remove(owner);
+            else _visible[owner] = visibleKeys;
             _pending.RemoveAll(r =>
             {
-                if (visibleKeys.Contains(r.Key)) return false;
+                if (_visible.Values.Any(keys => keys.Contains(r.Key))) return false;
                 _queued.Remove(r.Key);
                 return true;
             });
