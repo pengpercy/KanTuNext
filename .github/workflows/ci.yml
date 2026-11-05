@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           # Pinned: rolling forward to the newest feature band has picked versions not yet downloadable
-          dotnet-version: '10.0.402'
+          dotnet-version: '10.0.403'
 
       - uses: actions/cache@v6
         with:
