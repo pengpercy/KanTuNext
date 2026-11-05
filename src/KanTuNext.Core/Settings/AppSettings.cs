@@ -39,9 +39,9 @@ public sealed class AppSettings
     [JsonIgnore]
     public bool LiveTextEnabled => LiveText ?? !OperatingSystem.IsLinux();
 
-    /// <summary>Linux: draw the title bar in the app (as on Windows) rather than leave it to the window manager.
+    /// <summary>Linux: draw the title bar in the app (as on Windows) rather than leave it to the window manager (the default).
     /// Read once at startup, before Avalonia, so a change applies after a restart.</summary>
-    public bool LinuxDrawnTitleBar { get; set; } = true;
+    public bool LinuxDrawnTitleBar { get; set; }
 
     /// <summary>Viewer: the strip of thumbnails before and after the photo (预览条) is shown.</summary>
     public bool FilmstripVisible { get; set; }

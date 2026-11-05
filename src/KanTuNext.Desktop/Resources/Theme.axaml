@@ -86,7 +86,9 @@
        cards inside them (Card), and their rows and small buttons (Item) -->
   <CornerRadius x:Key="PanelCornerRadius">10</CornerRadius>
   <CornerRadius x:Key="CardCornerRadius">7</CornerRadius>
-  <CornerRadius x:Key="ItemCornerRadius">5</CornerRadius>
+  <CornerRadius x:Key="ItemCornerRadius">6</CornerRadius>
+  <!-- Fluent's default for buttons and fields (4) reads square next to the panels -->
+  <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
   <!-- Menus are tighter than panels, as the system's own -->
   <CornerRadius x:Key="MenuCornerRadius">6</CornerRadius>
   <!-- Label/value rows: one CJK font for both columns (its Latin too), so a Chinese label and a Latin-only value

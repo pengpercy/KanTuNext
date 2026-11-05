@@ -80,7 +80,7 @@
     <Setter Property="Background" Value="#1A2E9BFF" />
     <Setter Property="Foreground" Value="#FF5CB2FF" />
     <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="CornerRadius" Value="{StaticResource CardCornerRadius}" />
+    <Setter Property="CornerRadius" Value="9" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
   </Style>

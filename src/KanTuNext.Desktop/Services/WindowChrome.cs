@@ -12,8 +12,8 @@ internal static class WindowChrome
     public const double CaptionButtonsWidth = 138;
 
     /// <summary>
-    /// Whether Avalonia draws the title bar on Linux (otherwise the window manager does): on by default on every
-    /// desktop (GNOME, KDE, Xfce…), off with 设置 → 使用自绘标题栏. Fixed at startup because X11 options are;
+    /// Whether Avalonia draws the title bar on Linux (otherwise the window manager does): off by default (the window manager's own
+    /// title bar fits every desktop), on with 设置 → 使用自绘标题栏. Fixed at startup because X11 options are;
     /// KANTUNEXT_LINUX_CSD=0/1 overrides the setting.
     /// </summary>
     public static bool UsesLinuxDrawnDecorations { get; } = OperatingSystem.IsLinux() &&
