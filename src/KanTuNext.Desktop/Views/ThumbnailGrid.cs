@@ -174,15 +174,20 @@ public sealed class ThumbnailGrid : Control
                 var rect = ItemRect(section, i);
                 visibleKeys.Add(ThumbnailService.KeyOf(item.Path, item.Modified, bucket));
                 var bitmap = service.Get(item.Path, item.Modified, bucket);
-                if (bitmap is not null)
-                    context.DrawImage(bitmap, new Rect(bitmap.Size), rect);
-                else
-                    context.FillRectangle(placeholder, rect);
+                var selected = _selected == (s, i);
+                // The selected thumbnail gets slightly rounded corners, inside a ring that follows them
+                using (selected ? context.PushClip(new RoundedRect(rect, SelectionRadius)) : default(DrawingContext.PushedState?))
+                {
+                    if (bitmap is not null)
+                        context.DrawImage(bitmap, new Rect(bitmap.Size), rect);
+                    else
+                        context.FillRectangle(placeholder, rect);
+                }
                 // Videos carry a play mark over their frame (or over the placeholder where none can be made)
                 if (item.Kind == MediaKind.Video) DrawPlayBadge(context, rect, bitmap is null ? faint : Brushes.White);
                 if (item.IsLivePhoto) DrawLiveBadge(context, rect);
-                if (_selected == (s, i))
-                    context.DrawRectangle(null, selectionPen, rect.Inflate(1));
+                if (selected)
+                    context.DrawRectangle(null, selectionPen, rect.Inflate(1), SelectionRadius + 1, SelectionRadius + 1);
                 if (ShowSizes)
                 {
                     var caption = Text(TimelineText.FileSize(item.Length), 11, text);
@@ -192,6 +197,9 @@ public sealed class ThumbnailGrid : Control
         }
         service.Retain(this, visibleKeys);
     }
+
+    /// <summary>Corner radius of the selected thumbnail; its ring, 1px outside, follows at radius + 1.</summary>
+    private const double SelectionRadius = 4;
 
     private static readonly IBrush LiveBadgeBrush = new SolidColorBrush(Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF));
     private static readonly IBrush LiveBadgeShadow = new SolidColorBrush(Color.FromArgb(0x59, 0, 0, 0));
